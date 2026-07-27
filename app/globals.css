@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/*
+ * Design Tokens — "Soft Pink / Apple Health" theme
+ * ---------------------------------------------------------------------------
+ * Palette:
+ *   Rose (primary / weight ring):     #FF6B9D  (light)  #FF7AAE (dark)
+ *   Petal (secondary / surfaces):     #FFB4C6
+ *   Teal (hydration ring, contrast):  #3FBFB0
+ *   Amber (steps / energy ring):      #FFB648
+ *   Ink (text):                       #2D2A32  (light)  #F5EFF2 (dark)
+ * Rounded corners everywhere (18-28px), frosted-glass surfaces, generous
+ * whitespace. Dark mode swaps the base surfaces for a deep plum-black
+ * rather than pure black, so the pink accents stay warm at night.
+ */
+
+:root {
+  color-scheme: light;
+
+  --color-bg: #fdf6f8;
+  --color-bg-elevated: #ffffff;
+  --color-surface-border: 255 255 255;
+
+  --color-ink: #2d2a32;
+  --color-ink-muted: #8a8590;
+  --color-ink-faint: #b9b3bd;
+
+  --color-rose: #ff6b9d;
+  --color-rose-strong: #f2467f;
+  --color-petal: #ffb4c6;
+  --color-petal-soft: #ffe3ea;
+  --color-teal: #3fbfb0;
+  --color-teal-soft: #d8f5f0;
+  --color-amber: #ffb648;
+  --color-amber-soft: #fff0d9;
+  --color-lavender: #b39ddb;
+
+  --color-success: #34c07a;
+  --color-warning: #ffb648;
+  --color-danger: #ff5c72;
+
+  --radius-card: 1.75rem;
+  --radius-control: 1rem;
+  --radius-pill: 999px;
+
+  --shadow-card: 0 8px 30px -12px rgba(255, 107, 157, 0.25),
+    0 2px 8px -2px rgba(45, 42, 50, 0.06);
+  --shadow-float: 0 16px 48px -16px rgba(255, 107, 157, 0.35);
+
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-blur: 20px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-bg: #17121c;
+  --color-bg-elevated: #1f1926;
+  --color-surface-border: 255 255 255;
+
+  --color-ink: #f5eff2;
+  --color-ink-muted: #a79cac;
+  --color-ink-faint: #6f6577;
+
+  --color-rose: #ff7aae;
+  --color-rose-strong: #ff5c99;
+  --color-petal: #d98ba3;
+  --color-petal-soft: #3a2530;
+  --color-teal: #4fd6c6;
+  --color-teal-soft: #17332f;
+  --color-amber: #ffc773;
+  --color-amber-soft: #372b16;
+  --color-lavender: #c9b6ea;
+
+  --color-success: #4ad991;
+  --color-warning: #ffc773;
+  --color-danger: #ff7085;
+
+  --shadow-card: 0 8px 30px -12px rgba(0, 0, 0, 0.45),
+    0 2px 8px -2px rgba(0, 0, 0, 0.3);
+  --shadow-float: 0 16px 48px -16px rgba(0, 0, 0, 0.55);
+
+  --glass-bg: rgba(31, 25, 38, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-bg-elevated: var(--color-bg-elevated);
+  --color-ink: var(--color-ink);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-ink-faint: var(--color-ink-faint);
+
+  --color-rose: var(--color-rose);
+  --color-rose-strong: var(--color-rose-strong);
+  --color-petal: var(--color-petal);
+  --color-petal-soft: var(--color-petal-soft);
+  --color-teal: var(--color-teal);
+  --color-teal-soft: var(--color-teal-soft);
+  --color-amber: var(--color-amber);
+  --color-amber-soft: var(--color-amber-soft);
+  --color-lavender: var(--color-lavender);
+
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+  --radius-pill: var(--radius-pill);
+
+  --font-sans: "Natassha UI", -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "SF Pro Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+}
+
+* {
+  border-color: rgb(var(--color-surface-border) / 0.08);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Radial wash behind the app shell — subtle, not a "gradient hero" cliché. */
+.app-backdrop {
+  background:
+    radial-gradient(60% 45% at 12% -10%, color-mix(in srgb, var(--color-petal) 35%, transparent), transparent 60%),
+    radial-gradient(50% 40% at 100% 0%, color-mix(in srgb, var(--color-teal) 18%, transparent), transparent 60%),
+    var(--color-bg);
+}
+
+/* Frosted glass card surface — the app's signature material. */
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+}
+
+/* Visible keyboard focus ring, respected app-wide (accessibility floor). */
+:focus-visible {
+  outline: 2px solid var(--color-rose);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-rose) 30%, transparent);
+  border-radius: var(--radius-pill);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
