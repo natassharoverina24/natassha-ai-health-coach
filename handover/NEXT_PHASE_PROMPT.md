@@ -33,7 +33,7 @@ Requirements:
 - Do NOT modify any existing engine, the Decision Engine, the Response Layer, or any frozen document.
 - Do NOT modify any existing planner file (dailyPlanner.ts, mealPlanner.ts, mealTemplates.ts, plannerHelpers.ts, plannerTypes.ts).
 - Export the new module from src/lib/planner/index.ts.
-- Add comprehensive tests in tests/unit/planner/officeLunchOptimizer.test.ts covering: normal day (all Eat), Thyroid active (skip Sweet Drink), Migraine active (no skip that creates a meal gap), PMS active (Add protein), protein priority, mixed recommendations.
+- Add comprehensive tests in tests/unit/planner/officeLunchOptimizer.test.ts covering: normal day, all items Eat, mixed recommendations; Skip requires a valid non-Thyroid target conflict or an explicit retained non-Thyroid guardrail, while calorie overshoot alone produces Reduce and Thyroid alone never produces Skip; PMS and protein-first each produce exactly one Add-protein action using the catalogue-order tie-breaker Chicken → Fish → Egg → Tempe → Tofu; Migraine preserves a substantive lunch by keeping at least one of Rice, Chicken, Fish, Egg, Tempe, or Tofu as Eat or Reduce, without forcing Dessert or Sweet Drink; Thyroid does not introduce food-specific restrictions or increase calorie restriction; no thyroid-specific diet, medical rationale, supplement, or medication advice is generated.
 - Run: ESLint (zero warnings), TypeScript (zero errors), full Jest suite (zero regressions), production build (succeeds).
 - Stop after Phase 6C is complete. Do not continue into Phase 6D.
 - After completion, produce a summary with: Completed, Verification, Remaining, Known Limitations.

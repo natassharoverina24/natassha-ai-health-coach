@@ -287,8 +287,16 @@ of four actions, each with a stated reason:
 |---|---|
 | **Eat** | The component fits today's remaining targets as-is. |
 | **Reduce** | The component is fine in kind but not in the portion offered today, given what's already been eaten or what's still planned (e.g. a smaller rice portion when dinner is expected to be carb-heavy). |
-| **Skip** | The component doesn't fit today's targets or an active guardrail (e.g. skipping Sweet Drink on a day the Thyroid guardrail is active), and skipping it doesn't create a meal-gap risk per the Migraine Engine. |
+| **Skip** | The component doesn't fit today's targets or an active retained guardrail, and skipping it doesn't create a meal-gap risk per the Migraine Engine. Calorie overshoot alone leads to Reduce rather than automatically to Skip. |
 | **Add** | The office tray is short on protein or vegetables relative to today's targets, and something small and realistic can be added alongside it (not a separate meal — a supplement to this one). |
+
+The retained `thyroid.deficit_too_aggressive` insight does not independently
+mark any food as preferred or avoided. It prevents the Planner from deepening
+an excessive calorie deficit: when an item is otherwise acceptable, prefer
+Eat or Reduce over Skip unless another explicit retained guardrail requires
+Skip. Protein is a target to reach, never a maximum limit. The Optimizer must
+not introduce thyroid-specific diets, restrictions, supplements, medication
+advice, or medical food claims.
 
 Every recommendation must state its reason in one sentence, grounded in
 an actual target or an actual active insight — never a bare instruction

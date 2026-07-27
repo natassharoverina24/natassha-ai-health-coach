@@ -508,7 +508,7 @@ The following must NOT be modified by any future phase:
 
 **Dependencies:** `CoachDecision`, `PlannerUserContext`, `OFFICE_LUNCH_ITEMS` from `nutritionEstimates.ts`, constraint priority from `mealPlanner.ts`'s `detectActiveConstraints()`
 
-**Tests required:** normal day, Thyroid active (skip Sweet Drink), Migraine active (no skip that creates gap), protein priority (Add protein), all items Eat, mixed recommendations
+**Tests required:** normal day, all items Eat, mixed recommendations; Skip requires a valid non-Thyroid target conflict or an explicit retained non-Thyroid guardrail, while calorie overshoot alone produces Reduce and Thyroid alone never produces Skip; PMS and protein-first each produce exactly one Add-protein action using the catalogue-order tie-breaker Chicken → Fish → Egg → Tempe → Tofu; Migraine preserves a substantive lunch by keeping at least one of Rice, Chicken, Fish, Egg, Tempe, or Tofu as Eat or Reduce, without forcing Dessert or Sweet Drink; Thyroid does not introduce food-specific restrictions or increase calorie restriction; no thyroid-specific diet, medical rationale, supplement, or medication advice is generated
 
 **Verification:** ESLint + TypeScript + full Jest suite + production build, zero regressions
 
