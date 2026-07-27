@@ -21,7 +21,7 @@
 | 6A | Daily Planner Core | ✅ COMPLETE, FROZEN |
 | 6B | Meal Planner | ✅ COMPLETE, FROZEN |
 | 6C | Office Lunch Optimizer | ⬜ NOT STARTED |
-| 6D | GoFood Planner | ⬜ NOT STARTED |
+| 6D | Energy Calculator only | ⬜ NOT STARTED |
 | 6E | Weekly Meal Prep | ⬜ NOT STARTED |
 | 6F | Emergency Planner | ⬜ NOT STARTED |
 | 6G | Adaptive Planner | ⬜ NOT STARTED |
@@ -60,7 +60,7 @@
 - `MealPlan` and `DailyPlan` are independent outputs, not yet composed
 - Template library is small (18 templates) — sufficient for architecture validation, needs expansion for production
 - Office-lunch days still get a generic lunch template (Optimizer not yet built)
-- No GoFood budget field in Firestore (prose-only in USER_PROFILE.md)
+- GoFood Planner is cancelled and out of scope; GoFood purchases use the existing meal logging flow with existing estimates, photos, and manual corrections
 - No `daily_plans` persistence collection
 - Steps target displayed but unscored (no step data source)
 - `splitBriefing()` in AICoachCard duplicates `extractSummary()` in plannerHelpers (pre-planner legacy)

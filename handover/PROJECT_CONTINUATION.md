@@ -123,7 +123,7 @@ The Meal Planner currently reads 4 insight IDs from `CoachDecision`:
 | `menstrual.pms_hunger_support` | Menstrual | 3 | Prefer `pms-friendly` / `fiber-forward` tags |
 | `nutrition.protein_first` | Nutrition | 4 | Prefer `high-protein` tag |
 
-Future planners (Office Lunch Optimizer, GoFood Planner, Adaptive Planner) will need to read additional insight IDs from the same CoachDecision — all 31 IDs are listed in `IMPLEMENTATION_STATE.md`.
+Future planners (Office Lunch Optimizer and Adaptive Planner) will need to read additional insight IDs from the same CoachDecision — all 31 IDs are listed in `IMPLEMENTATION_STATE.md`.
 
 ---
 
@@ -163,7 +163,6 @@ generateCoachReply(CoachDecision) → LLM call → CoachReply
 | Module | Depends on |
 |---|---|
 | Office Lunch Optimizer (6C) | `CoachDecision`, `PlannerUserContext`, `detectActiveConstraints()` from mealPlanner, `OFFICE_LUNCH_ITEMS` from nutritionEstimates |
-| GoFood Planner (6D) | `CoachDecision`, `PlannerUserContext`, `detectActiveConstraints()`, new GoFood templates (possibly with prices) |
 | Weekly Meal Prep (6E) | `generateMealPlan()`, `MEAL_TEMPLATES`, `shopping` collection's `addedFrom: "ai-suggestion"` |
 | Emergency Planner (6F) | `generateDailyPlan()`, `generateMealPlan()`, `PlannerUserContext.currentHour` |
 | Adaptive Planner (6G) | 5 `adaptive.*` insight IDs from CoachDecision, existing `MealPlan`/`DailyPlan` |
@@ -187,11 +186,16 @@ generateCoachReply(CoachDecision) → LLM call → CoachReply
 ## Remaining Work (implementation order)
 
 1. **Phase 6C — Office Lunch Optimizer** → `src/lib/planner/officeLunchOptimizer.ts`
-2. **Phase 6D — GoFood Planner** → `src/lib/planner/goFoodPlanner.ts` (+ possibly `goFoodTemplates.ts`)
+2. **Phase 6D — Energy Calculator only**
 3. **Phase 6E — Weekly Meal Prep** → `src/lib/planner/weeklyMealPrep.ts`
 4. **Phase 6F — Emergency Planner** → `src/lib/planner/emergencyPlanner.ts`
 5. **Phase 6G — Adaptive Planner** → `src/lib/planner/adaptivePlanner.ts`
 6. **Phase 7 — Dashboard / UI Integration** — compose DailyPlan + MealPlan, surface on Dashboard
+
+**GoFood scope decision:** The GoFood Planner is cancelled and out of scope.
+Meals purchased through GoFood are logged through the existing meal logging
+flow with existing estimates, photos, and manual corrections. Do not remove
+or redesign existing meal logging, and do not implement GoFood-specific code.
 
 ---
 

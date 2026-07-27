@@ -2,6 +2,12 @@
 
 Paste the following into a brand-new Claude conversation to continue implementation immediately.
 
+> **Roadmap update:** Phase 6D contains the Energy Calculator only. The
+> GoFood Planner is cancelled and out of scope. Meals purchased through
+> GoFood use the existing meal logging flow with existing estimates, photos,
+> and manual corrections. Do not remove or redesign existing meal logging,
+> and do not implement GoFood-specific code.
+
 ---
 
 ```

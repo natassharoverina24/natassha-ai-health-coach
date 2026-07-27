@@ -232,7 +232,7 @@
 
 **Things intentionally NOT implemented in Phase 6B:**
 - Office Lunch Optimizer (Phase 6C) — the meal planner generates a lunch template even on office-lunch days; the Optimizer should eventually replace that slot with Eat/Reduce/Skip/Add guidance
-- GoFood Planner (Phase 6D) — no budget filtering or GoFood-specific templates
+- GoFood Planner — cancelled and out of scope; meals purchased through GoFood use the existing meal logging flow with existing estimates, photos, and manual corrections
 - `MealPlan` is not yet wired into `DailyPlan` — the two outputs exist independently; connecting them is a future integration step
 - No external recipe provider — templates are hardcoded
 - Template library is intentionally small (18) — architecturally ready for expansion by simply adding entries to `MEAL_TEMPLATES`
@@ -434,7 +434,7 @@ The Daily Planner and Meal Planner are **not yet called from any UI**. They exis
 | Component | Spec section | Status |
 |---|---|---|
 | Office Lunch Optimizer | AI_PLANNING_SPEC.md §4 | Not started |
-| GoFood Planner | AI_PLANNING_SPEC.md §5 | Not started |
+| GoFood Planner | AI_PLANNING_SPEC.md §5 | Cancelled and out of scope; use existing meal logging |
 | Weekly Meal Prep | AI_PLANNING_SPEC.md §6 | Not started |
 | Emergency Planner | AI_PLANNING_SPEC.md §7 | Not started |
 | Adaptive Planner | AI_PLANNING_SPEC.md §8 | Not started |
@@ -514,24 +514,15 @@ The following must NOT be modified by any future phase:
 
 **Stop condition:** Office Lunch Optimizer is a tested pure function. Not wired to UI.
 
-### Phase 6D — GoFood Planner
+### Phase 6D — Energy Calculator
 
-**Purpose:** Recommend specific orderable meals within the ~Rp 30,000 budget when Natassha orders via GoFood.
+**Scope:** Energy Calculator only.
 
-**Expected files:**
-- `src/lib/planner/goFoodPlanner.ts`
-- Possibly `src/lib/planner/goFoodTemplates.ts` (GoFood-specific meal templates with prices)
-
-**Main public function:**
-- `generateGoFoodRecommendation(decision, context, remainingCalories)` → recommended order with budget/calorie/protein rationale and trade-off explanation when constraints conflict
-
-**Dependencies:** `CoachDecision`, `PlannerUserContext`, constraint priority, GoFood budget (currently prose-only in USER_PROFILE.md — may need a structured field per AI_PLANNING_SPEC.md §12)
-
-**Tests required:** within budget, over budget trade-off, protein maximization, Mixue substitution, calorie-remaining fit
-
-**Verification:** ESLint + TypeScript + full Jest suite + production build
-
-**Stop condition:** GoFood Planner is a tested pure function. Not wired to UI.
+The GoFood Planner is cancelled and out of scope. Meals purchased through
+GoFood continue to use the existing meal logging flow, including existing
+estimates, photos, and manual corrections. Do not remove or redesign that
+flow, and do not implement GoFood-specific catalogue, pricing, restaurant,
+selection, or ordering code.
 
 ### Phase 6E — Weekly Meal Prep
 
@@ -595,7 +586,7 @@ The following must NOT be modified by any future phase:
 - Compose `DailyPlan` + `MealPlan` into a single rendered daily briefing
 - Replace or extend `AICoachCard` to show the structured plan (schedule, meals, action items) alongside the coaching summary
 - Wire `generateDailyPlan()` and `generateMealPlan()` into the existing auto-load flow on Dashboard mount
-- Consider integrating Office Lunch Optimizer and GoFood Planner into the Meal page or a dedicated plan view
+- Consider integrating Office Lunch Optimizer into the Meal page or a dedicated plan view
 
 **Stop condition:** A user opening the Dashboard sees the full daily plan (targets, schedule, meals, risk/win/actions) without pressing any button.
 
@@ -608,8 +599,6 @@ The following must NOT be modified by any future phase:
 | `MealPlan` and `DailyPlan` are independent outputs, not composed | Built and tested independently first; composition is straightforward but deferred | Phase 7 (UI integration) |
 | Template library is small (18 templates) | Enough to prove the scoring/constraint system works; expanding requires only adding entries | Before production use |
 | Office lunch day still gets a generic lunch template from `generateMealPlan()` | Office Lunch Optimizer (Phase 6C) should replace that slot; doing it now would create a dependency on unbuilt code | Phase 6C |
-| No GoFood budget field in Firestore (only prose in USER_PROFILE.md) | Structured field is optional additive change per AI_PLANNING_SPEC.md §12 | Phase 6D or later |
-| No GoFood order log collection | Needed only for GoFood-specific adaptive patterns, not core planning | When GoFood patterns become a priority |
 | No `daily_plans` collection (plans are computed on demand, not persisted) | Not required for first version per AI_PLANNING_SPEC.md §12 | When plan-following tracking is needed |
 | Steps target displayed but unscored | No step-count data source exists; documented in AI_COACH_SPEC.md §10 | When step tracking is added |
 | `splitBriefing()` in AICoachCard duplicates `extractSummary()` in plannerHelpers | splitBriefing existed first (Phase 5); extractSummary formalized it later (Phase 6A); AICoachCard hasn't been refactored to use the planner version | Phase 7 (UI integration) |

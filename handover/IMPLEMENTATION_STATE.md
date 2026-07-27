@@ -217,4 +217,16 @@ Every completed phase, with every file, function, type, design decision, and int
 
 **Tests:** mealTemplates (6), mealPlanner (18) = 24 total.
 
-**Intentionally NOT implemented:** Office Lunch Optimizer, GoFood Planner, DailyPlan+MealPlan composition, external recipe providers, GoFood budget filtering.
+**Intentionally NOT implemented:** DailyPlan+MealPlan composition and external recipe providers. GoFood Planner and GoFood-specific budget filtering are cancelled and out of scope; GoFood purchases use the existing meal logging flow with existing estimates, photos, and manual corrections.
+
+---
+
+## Phase 6C — Office Lunch Optimizer
+
+**Status:** Implemented and verified.
+
+**Verification:**
+- TypeScript: PASS
+- ESLint: PASS
+- Tests: 414/414 PASS
+- Production build: PASS

@@ -6,4 +6,5 @@ export * from "./kpi";
 export * from "./milestones";
 export * from "./summary";
 export * from "./energyEstimate";
+export * from "./energyCalculator";
 export * from "./weeklyChanges";
