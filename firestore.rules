@@ -1,0 +1,118 @@
+rules_version = '2';
+
+/**
+ * Security model: every document in every collection carries a `userId`
+ * (or, for `users`/`settings`, uses the uid as the document id). A user
+ * may only read or write their own data — no document is ever readable
+ * by anyone else. There are no public/shared collections in this app.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function ownsIncomingDoc() {
+      return isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    function ownsExistingDoc() {
+      return isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // users/{uid} — profile document, id === uid
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // settings/{uid} — settings document, id === uid
+    match /settings/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Collections keyed by an auto-generated id with a `userId` field.
+    match /weights/{docId} {
+      allow read, update, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+    }
+
+    match /waists/{docId} {
+      allow read, update, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+    }
+
+    match /meals/{docId} {
+      allow read, update, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+    }
+
+    match /meal_photos/{docId} {
+      allow read, update, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+    }
+
+    match /supplements/{docId} {
+      allow read, update, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+    }
+
+    match /supplement_logs/{docId} {
+      allow read, update, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+    }
+
+    match /water_logs/{docId} {
+      allow read, update, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+    }
+
+    match /workouts/{docId} {
+      allow read, update, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+    }
+
+    match /sleep_logs/{docId} {
+      allow read, update, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+    }
+
+    match /motivations/{docId} {
+      allow read, update, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+    }
+
+    match /shopping/{docId} {
+      allow read, update, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+    }
+
+    match /reports/{docId} {
+      // Reports are system/AI-generated (see src/lib/db/reports.repository.ts);
+      // clients may read their own but never write/delete directly.
+      allow read: if ownsExistingDoc();
+      allow create, update, delete: if false;
+    }
+
+    match /cycles/{docId} {
+      allow read, update, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+    }
+
+    match /ai_logs/{docId} {
+      // Append-only from the client; no edits or deletes once written.
+      allow read: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+      allow update, delete: if false;
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
