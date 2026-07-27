@@ -42,18 +42,21 @@ export interface MealPlan {
   dinner: MealRecommendation;
 }
 
+export interface RankedMealCandidate extends MealRecommendation {
+  score: number;
+  catalogueOrder: number;
+}
+
 // ---------------------------------------------------------------------------
 // Active-insight detection (reads CoachDecision, never decides)
 // ---------------------------------------------------------------------------
 
 export interface ActiveConstraints {
-  thyroidDeficitActive: boolean;
   migraineActive: boolean;
   pmsActive: boolean;
   proteinPriority: boolean;
 }
 
-const THYROID_DEFICIT_ID = "thyroid.deficit_too_aggressive";
 const MIGRAINE_ACTIVE_ID = "migraine.active_symptom_care";
 const PMS_HUNGER_ID = "menstrual.pms_hunger_support";
 const PROTEIN_FIRST_ID = "nutrition.protein_first";
@@ -61,7 +64,6 @@ const PROTEIN_FIRST_ID = "nutrition.protein_first";
 export function detectActiveConstraints(insights: EngineInsight[]): ActiveConstraints {
   const ids = new Set(insights.map((i) => i.id));
   return {
-    thyroidDeficitActive: ids.has(THYROID_DEFICIT_ID),
     migraineActive: ids.has(MIGRAINE_ACTIVE_ID),
     pmsActive: ids.has(PMS_HUNGER_ID),
     proteinPriority: ids.has(PROTEIN_FIRST_ID),
@@ -167,15 +169,7 @@ function scoreTemplate(
   budget: SlotBudget,
   required: MealTag[],
   preferred: MealTag[],
-  thyroidDeficitActive: boolean,
 ): number {
-  // Priority 1 (Thyroid safety): if the deficit guardrail is active,
-  // strongly prefer lighter meals (fewer calories) to avoid deepening
-  // the deficit the Thyroid Engine already flagged.
-  if (thyroidDeficitActive && template.calories > budget.calories * 1.15) {
-    return -1000;
-  }
-
   // Required tags: a template missing any required tag is disqualified.
   for (const tag of required) {
     if (!template.tags.includes(tag)) {
@@ -219,37 +213,59 @@ function scoreTemplate(
  * budget and the day's active constraints. Returns the template and a
  * human-readable reason for the selection.
  */
-function selectForSlot(
+export function rankMealCandidates(
+  decision: CoachDecision,
+  context: PlannerUserContext,
   slot: MealSlot,
-  budget: SlotBudget,
-  constraints: ActiveConstraints,
-  excludeIds: Set<string>,
-): MealRecommendation {
+  excludeIds: ReadonlySet<string> = new Set<string>(),
+): RankedMealCandidate[] {
+  const constraints = detectActiveConstraints(decision.insights);
+  const budget = distributeTargets(
+    context.calorieGoal,
+    context.proteinGoalG,
+    context.lunchProvidedByOffice,
+  )[slot];
   const { required, preferred } = buildPreferredTags(constraints, slot);
-  const candidates = MEAL_TEMPLATES.filter((t) => t.slots.includes(slot) && !excludeIds.has(t.id));
+  const candidates = MEAL_TEMPLATES.filter(
+    (template) => template.slots.includes(slot) && !excludeIds.has(template.id),
+  );
 
   if (candidates.length === 0) {
     // Fallback: if exclusions emptied the pool, re-include excluded templates
     // rather than returning nothing. This can only happen if there are more
     // slots than templates for that slot type — a library-size issue, not a
     // constraint issue.
-    const fallback = MEAL_TEMPLATES.filter((t) => t.slots.includes(slot));
-    const best = fallback[0];
-    return { slot, template: best, reason: `Best available option for ${slot}.` };
+    return [];
   }
 
-  const scored = candidates.map((template) => ({
-    template,
-    score: scoreTemplate(template, budget, required, preferred, constraints.thyroidDeficitActive),
-  }));
+  return candidates
+    .map((template) => ({
+      slot,
+      template,
+      score: scoreTemplate(template, budget, required, preferred),
+      catalogueOrder: MEAL_TEMPLATES.indexOf(template),
+      reason: buildReason(template, budget, constraints, slot),
+    }))
+    .filter(({ score }) => score > -1000)
+    .sort((a, b) => b.score - a.score || a.catalogueOrder - b.catalogueOrder);
+}
 
-  scored.sort((a, b) => b.score - a.score);
-  const best = scored[0].template;
+function selectForSlot(
+  decision: CoachDecision,
+  context: PlannerUserContext,
+  slot: MealSlot,
+  excludeIds: ReadonlySet<string>,
+): MealRecommendation {
+  const best = rankMealCandidates(decision, context, slot, excludeIds)[0];
+  if (best) {
+    return { slot: best.slot, template: best.template, reason: best.reason };
+  }
 
+  const fallback = rankMealCandidates(decision, context, slot)[0];
   return {
     slot,
-    template: best,
-    reason: buildReason(best, budget, constraints, slot),
+    template: fallback.template,
+    reason: `Best available option for ${slot}.`,
   };
 }
 
@@ -260,9 +276,6 @@ function buildReason(
   slot: MealSlot,
 ): string {
   // Highest-priority active constraint that influenced the pick gets the reason.
-  if (constraints.thyroidDeficitActive && template.calories <= budget.calories) {
-    return `Lighter option to stay within today's moderate calorie target (Thyroid guardrail active).`;
-  }
   if (constraints.migraineActive && template.tags.includes("migraine-safe")) {
     return `Migraine-safe choice — gentle on the stomach, keeps meal gaps short.`;
   }
@@ -293,24 +306,21 @@ export function generateMealPlan(
   decision: CoachDecision,
   context: PlannerUserContext,
 ): MealPlan {
-  const constraints = detectActiveConstraints(decision.insights);
-  const budgets = distributeTargets(context.calorieGoal, context.proteinGoalG, context.lunchProvidedByOffice);
-
   // Select in priority-of-importance order (breakfast first — it's the
   // most time-constrained slot), tracking used template IDs for the meal
   // variety principle (AI_PLANNING_SPEC.md §9).
   const usedIds = new Set<string>();
 
-  const breakfast = selectForSlot("breakfast", budgets.breakfast, constraints, usedIds);
+  const breakfast = selectForSlot(decision, context, "breakfast", usedIds);
   usedIds.add(breakfast.template.id);
 
-  const lunch = selectForSlot("lunch", budgets.lunch, constraints, usedIds);
+  const lunch = selectForSlot(decision, context, "lunch", usedIds);
   usedIds.add(lunch.template.id);
 
-  const snack = selectForSlot("snack", budgets.snack, constraints, usedIds);
+  const snack = selectForSlot(decision, context, "snack", usedIds);
   usedIds.add(snack.template.id);
 
-  const dinner = selectForSlot("dinner", budgets.dinner, constraints, usedIds);
+  const dinner = selectForSlot(decision, context, "dinner", usedIds);
 
   return { breakfast, lunch, snack, dinner };
 }

@@ -2,9 +2,11 @@ import {
   detectActiveConstraints,
   distributeTargets,
   generateMealPlan,
+  rankMealCandidates,
 } from "@/lib/planner/mealPlanner";
 import type { CoachDecision } from "@/lib/engines/decisionEngine";
 import type { EngineInsight } from "@/lib/engines/types";
+import { MEAL_TEMPLATES } from "@/lib/planner/mealTemplates";
 import type { PlannerUserContext } from "@/lib/planner/plannerTypes";
 import { DEFAULT_GOALS } from "@/lib/utils/constants";
 
@@ -49,7 +51,7 @@ function makeContext(overrides: Partial<PlannerUserContext> = {}): PlannerUserCo
 // ---------------------------------------------------------------------------
 
 describe("detectActiveConstraints", () => {
-  it("detects all four constraint signals from insight IDs", () => {
+  it("detects the three food-selection constraint signals from insight IDs", () => {
     const constraints = detectActiveConstraints([
       insight({ id: "thyroid.deficit_too_aggressive", engine: "thyroid" }),
       insight({ id: "migraine.active_symptom_care", engine: "migraine" }),
@@ -57,7 +59,6 @@ describe("detectActiveConstraints", () => {
       insight({ id: "nutrition.protein_first", engine: "nutrition" }),
     ]);
     expect(constraints).toEqual({
-      thyroidDeficitActive: true,
       migraineActive: true,
       pmsActive: true,
       proteinPriority: true,
@@ -69,7 +70,6 @@ describe("detectActiveConstraints", () => {
       insight({ id: "behavior.consistency_reinforcement" }),
     ]);
     expect(constraints).toEqual({
-      thyroidDeficitActive: false,
       migraineActive: false,
       pmsActive: false,
       proteinPriority: false,
@@ -79,7 +79,6 @@ describe("detectActiveConstraints", () => {
   it("handles an empty insight list", () => {
     const constraints = detectActiveConstraints([]);
     expect(constraints).toEqual({
-      thyroidDeficitActive: false,
       migraineActive: false,
       pmsActive: false,
       proteinPriority: false,
@@ -129,6 +128,21 @@ describe("distributeTargets", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateMealPlan — normal day (no active constraints)", () => {
+  it("exposes the same ranked candidate that generateMealPlan selects", () => {
+    const decision = makeDecision([]);
+    const context = makeContext();
+    const ranked = rankMealCandidates(decision, context, "breakfast");
+    const plan = generateMealPlan(decision, context);
+
+    expect(ranked[0].template.id).toBe(plan.breakfast.template.id);
+    expect(ranked[0].reason).toBe(plan.breakfast.reason);
+    expect(ranked).toEqual(
+      [...ranked].sort(
+        (a, b) => b.score - a.score || a.catalogueOrder - b.catalogueOrder,
+      ),
+    );
+  });
+
   it("produces a recommendation for every slot", () => {
     const plan = generateMealPlan(makeDecision([]), makeContext());
     expect(plan.breakfast.slot).toBe("breakfast");
@@ -163,23 +177,113 @@ describe("generateMealPlan — normal day (no active constraints)", () => {
     ];
     expect(new Set(ids).size).toBe(4);
   });
+
+  it("preserves the established non-Thyroid template ranking", () => {
+    const plan = generateMealPlan(makeDecision([]), makeContext());
+    expect([
+      plan.breakfast.template.id,
+      plan.lunch.template.id,
+      plan.snack.template.id,
+      plan.dinner.template.id,
+    ]).toEqual([
+      "oatmeal-banana",
+      "chicken-rice-veg",
+      "edamame-snack",
+      "fish-rice-veg",
+    ]);
+  });
 });
 
 // ---------------------------------------------------------------------------
 // generateMealPlan — Thyroid safety (Priority 1)
 // ---------------------------------------------------------------------------
 
-describe("generateMealPlan — Thyroid guardrail active (Priority 1)", () => {
-  it("never selects a template that overshoots the slot calorie budget by more than 15%", () => {
+describe("generateMealPlan — Thyroid deficit guardrail neutrality", () => {
+  const thyroidInsight = insight({
+    id: "thyroid.deficit_too_aggressive",
+    engine: "thyroid",
+  });
+
+  function recommendations(plan: ReturnType<typeof generateMealPlan>) {
+    return [plan.breakfast, plan.lunch, plan.snack, plan.dinner];
+  }
+
+  it("selects the same template IDs with and without Thyroid", () => {
+    const withoutThyroid = generateMealPlan(makeDecision([]), makeContext());
+    const withThyroid = generateMealPlan(makeDecision([thyroidInsight]), makeContext());
+
+    expect(recommendations(withThyroid).map((rec) => rec.template.id)).toEqual(
+      recommendations(withoutThyroid).map((rec) => rec.template.id),
+    );
+  });
+
+  it("does not reduce total selected calories", () => {
+    const withoutThyroid = generateMealPlan(makeDecision([]), makeContext());
+    const withThyroid = generateMealPlan(makeDecision([thyroidInsight]), makeContext());
+    const totalCalories = (plan: ReturnType<typeof generateMealPlan>) =>
+      recommendations(plan).reduce((sum, rec) => sum + rec.template.calories, 0);
+
+    expect(totalCalories(withThyroid)).toBe(totalCalories(withoutThyroid));
+  });
+
+  it("does not make templates above 115% of a slot budget ineligible", () => {
+    const context = makeContext({ calorieGoal: 500 });
+    const plan = generateMealPlan(makeDecision([thyroidInsight]), context);
+    const budgets = distributeTargets(context.calorieGoal, context.proteinGoalG, true);
+
+    expect(
+      recommendations(plan).some(
+        (rec) => rec.template.calories > budgets[rec.slot].calories * 1.15,
+      ),
+    ).toBe(true);
+  });
+
+  it("generates no Thyroid, restriction, supplement, medication, or medical rationale", () => {
+    const plan = generateMealPlan(makeDecision([thyroidInsight]), makeContext());
+    const prohibited =
+      /thyroid|lighter|supplements?|medication|medical|iodine|selenium|gluten|soy|cruciferous/i;
+
+    for (const rec of recommendations(plan)) {
+      expect(rec.reason).not.toMatch(prohibited);
+    }
+  });
+
+  it("preserves the Migraine rationale when both insights are retained", () => {
     const plan = generateMealPlan(
-      makeDecision([insight({ id: "thyroid.deficit_too_aggressive", engine: "thyroid" })]),
+      makeDecision([
+        thyroidInsight,
+        insight({ id: "migraine.active_symptom_care", engine: "migraine" }),
+      ]),
       makeContext(),
     );
-    const budgets = distributeTargets(DEFAULT_GOALS.calorieGoal, DEFAULT_GOALS.proteinGoalG, true);
-    for (const rec of [plan.breakfast, plan.lunch, plan.snack, plan.dinner]) {
-      const budget = budgets[rec.slot];
-      expect(rec.template.calories).toBeLessThanOrEqual(budget.calories * 1.15);
+
+    for (const rec of recommendations(plan)) {
+      expect(rec.template.tags).toContain("migraine-safe");
+      expect(rec.reason).toMatch(/^Migraine-safe choice/);
     }
+  });
+
+  it("adds no required or preferred food tags and introduces no named-food restriction", () => {
+    const withoutThyroid = generateMealPlan(makeDecision([]), makeContext());
+    const withThyroid = generateMealPlan(makeDecision([thyroidInsight]), makeContext());
+
+    expect(recommendations(withThyroid).map((rec) => rec.template)).toEqual(
+      recommendations(withoutThyroid).map((rec) => rec.template),
+    );
+  });
+
+  it("does not mutate inputs or MEAL_TEMPLATES", () => {
+    const decision = makeDecision([thyroidInsight]);
+    const context = makeContext();
+    const decisionSnapshot = JSON.parse(JSON.stringify(decision));
+    const contextSnapshot = JSON.parse(JSON.stringify(context));
+    const templatesSnapshot = JSON.parse(JSON.stringify(MEAL_TEMPLATES));
+
+    generateMealPlan(decision, context);
+
+    expect(decision).toEqual(decisionSnapshot);
+    expect(context).toEqual(contextSnapshot);
+    expect(MEAL_TEMPLATES).toEqual(templatesSnapshot);
   });
 });
 
