@@ -42,8 +42,17 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit
 
-      - name: ESLint
+            - name: ESLint
         run: npm run lint
+
+      - name: Jest
+        run: npm test -- --coverage=false --runInBand --testPathIgnorePatterns=tests/firebase
+
+      - name: Firebase security rules
+        run: npm run test:rules
+
+      - name: Production build
+        run: npm run build
 
       - name: Jest
         run: npm test -- --coverage=false --runInBand --testPathIgnorePatterns=tests/firebase
