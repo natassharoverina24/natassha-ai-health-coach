@@ -5,3 +5,4 @@ export * from "./mealTemplates";
 export * from "./mealPlanner";
 export * from "./officeLunchOptimizer";
 export * from "./weeklyMealPrep";
+export * from "./emergencyPlanner";
