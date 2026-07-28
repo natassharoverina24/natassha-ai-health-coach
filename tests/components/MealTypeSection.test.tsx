@@ -70,7 +70,7 @@ describe("MealTypeSection", () => {
     expect(screen.getByText("Office lunch")).toBeInTheDocument();
   });
 
-  it("shows a photo count indicator when the meal has photos", () => {
+  it("does not expose legacy persisted-photo metadata", () => {
     render(
       <MealTypeSection
         type="lunch"
@@ -82,7 +82,7 @@ describe("MealTypeSection", () => {
         onDelete={jest.fn()}
       />,
     );
-    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.queryByText("2")).not.toBeInTheDocument();
   });
 
   it("calls onView when the row is clicked", async () => {

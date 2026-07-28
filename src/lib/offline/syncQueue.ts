@@ -7,7 +7,7 @@
  * free and this module isn't in the critical path.
  *
  * This queue exists for the operations that are NOT plain Firestore writes,
- * e.g. Storage uploads (meal photos) that a user takes on the way home with
+ * e.g. user-confirmed Firestore updates made on the way home with
  * no signal. Those need to be captured, persisted locally, and retried
  * ourselves once the browser reports connectivity.
  */

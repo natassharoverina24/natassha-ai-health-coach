@@ -7,19 +7,21 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { MealPhotoSection } from "./MealPhotoSection";
 import { formatCalories, formatGrams, formatTimeLabel } from "@/lib/utils/format";
-import type { MealEntry, MealPhoto } from "@/types/firestore";
+import type {
+  ConfirmedMealPhotoEstimate,
+  MealPhotoAnalysis,
+} from "@/lib/ai/mealPhotoAnalysis";
+import type { MealEntry } from "@/types/firestore";
 
 export interface MealDetailModalProps {
   meal: MealEntry | null;
-  photos: MealPhoto[];
   onClose: () => void;
   onEdit: (meal: MealEntry) => void;
   onDelete: (id: string) => void;
-  onUploadPhoto: (file: File) => Promise<void>;
-  onDeletePhoto: (photo: MealPhoto) => Promise<void>;
-  uploadingPhoto: boolean;
-  photoUploadError: string | null;
-  deletingPhotoId: string | null;
+  onAnalyzePhoto: (file: File) => Promise<MealPhotoAnalysis>;
+  onConfirmPhotoEstimate: (
+    estimate: ConfirmedMealPhotoEstimate,
+  ) => Promise<void>;
 }
 
 interface MacroStatProps {
@@ -39,15 +41,11 @@ function MacroStat({ label, value }: MacroStatProps) {
 /** Read-only detail view for a single logged food, with photo management and quick access to edit/delete. */
 export function MealDetailModal({
   meal,
-  photos,
   onClose,
   onEdit,
   onDelete,
-  onUploadPhoto,
-  onDeletePhoto,
-  uploadingPhoto,
-  photoUploadError,
-  deletingPhotoId,
+  onAnalyzePhoto,
+  onConfirmPhotoEstimate,
 }: MealDetailModalProps) {
   return (
     <Modal open={meal !== null} onClose={onClose} title={meal?.name ?? "Meal detail"}>
@@ -63,12 +61,8 @@ export function MealDetailModal({
           </div>
 
           <MealPhotoSection
-            photos={photos}
-            onUploadFile={onUploadPhoto}
-            onDeletePhoto={onDeletePhoto}
-            uploading={uploadingPhoto}
-            uploadError={photoUploadError}
-            deletingPhotoId={deletingPhotoId}
+            onAnalyzeFile={onAnalyzePhoto}
+            onConfirm={onConfirmPhotoEstimate}
           />
 
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">

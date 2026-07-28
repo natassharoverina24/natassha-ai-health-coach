@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { MealDetailModal } from "@/components/meal/MealDetailModal";
+import type { MealPhotoAnalysis } from "@/lib/ai/mealPhotoAnalysis";
 import type { MealEntry } from "@/types/firestore";
 
 function makeMeal(overrides: Partial<MealEntry> = {}): MealEntry {
@@ -24,21 +25,26 @@ function makeMeal(overrides: Partial<MealEntry> = {}): MealEntry {
 }
 
 const noop = () => Promise.resolve();
+const analysis: MealPhotoAnalysis = {
+  items: [{ name: "Meal", estimatedPortion: "one plate" }],
+  estimatedCalories: 100,
+  estimatedProteinG: 10,
+  confidence: "low",
+  uncertain: true,
+  assumptions: [],
+  estimatedAt: "2026-07-25T00:00:00.000Z",
+};
 
 describe("MealDetailModal", () => {
   it("renders nothing when meal is null", () => {
     render(
       <MealDetailModal
         meal={null}
-        photos={[]}
         onClose={jest.fn()}
         onEdit={jest.fn()}
         onDelete={jest.fn()}
-        onUploadPhoto={noop}
-        onDeletePhoto={noop}
-        uploadingPhoto={false}
-        photoUploadError={null}
-        deletingPhotoId={null}
+        onAnalyzePhoto={async () => analysis}
+        onConfirmPhotoEstimate={noop}
       />,
     );
     expect(screen.queryByText("Nasi goreng")).not.toBeInTheDocument();
@@ -49,15 +55,11 @@ describe("MealDetailModal", () => {
     render(
       <MealDetailModal
         meal={meal}
-        photos={[]}
         onClose={jest.fn()}
         onEdit={jest.fn()}
         onDelete={jest.fn()}
-        onUploadPhoto={noop}
-        onDeletePhoto={noop}
-        uploadingPhoto={false}
-        photoUploadError={null}
-        deletingPhotoId={null}
+        onAnalyzePhoto={async () => analysis}
+        onConfirmPhotoEstimate={noop}
       />,
     );
     expect(screen.getAllByText("Nasi goreng").length).toBeGreaterThan(0);
@@ -74,15 +76,11 @@ describe("MealDetailModal", () => {
     const { rerender } = render(
       <MealDetailModal
         meal={makeMeal({ isOfficeLunch: false })}
-        photos={[]}
         onClose={jest.fn()}
         onEdit={jest.fn()}
         onDelete={jest.fn()}
-        onUploadPhoto={noop}
-        onDeletePhoto={noop}
-        uploadingPhoto={false}
-        photoUploadError={null}
-        deletingPhotoId={null}
+        onAnalyzePhoto={async () => analysis}
+        onConfirmPhotoEstimate={noop}
       />,
     );
     expect(screen.queryByText("Office lunch")).not.toBeInTheDocument();
@@ -90,15 +88,11 @@ describe("MealDetailModal", () => {
     rerender(
       <MealDetailModal
         meal={makeMeal({ isOfficeLunch: true })}
-        photos={[]}
         onClose={jest.fn()}
         onEdit={jest.fn()}
         onDelete={jest.fn()}
-        onUploadPhoto={noop}
-        onDeletePhoto={noop}
-        uploadingPhoto={false}
-        photoUploadError={null}
-        deletingPhotoId={null}
+        onAnalyzePhoto={async () => analysis}
+        onConfirmPhotoEstimate={noop}
       />,
     );
     expect(screen.getByText("Office lunch")).toBeInTheDocument();
@@ -110,15 +104,11 @@ describe("MealDetailModal", () => {
     render(
       <MealDetailModal
         meal={meal}
-        photos={[]}
         onClose={jest.fn()}
         onEdit={onEdit}
         onDelete={jest.fn()}
-        onUploadPhoto={noop}
-        onDeletePhoto={noop}
-        uploadingPhoto={false}
-        photoUploadError={null}
-        deletingPhotoId={null}
+        onAnalyzePhoto={async () => analysis}
+        onConfirmPhotoEstimate={noop}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: /edit/i }));
@@ -132,15 +122,11 @@ describe("MealDetailModal", () => {
     render(
       <MealDetailModal
         meal={meal}
-        photos={[]}
         onClose={onClose}
         onEdit={jest.fn()}
         onDelete={onDelete}
-        onUploadPhoto={noop}
-        onDeletePhoto={noop}
-        uploadingPhoto={false}
-        photoUploadError={null}
-        deletingPhotoId={null}
+        onAnalyzePhoto={async () => analysis}
+        onConfirmPhotoEstimate={noop}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: /delete/i }));

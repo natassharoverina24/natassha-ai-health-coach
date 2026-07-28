@@ -2,7 +2,7 @@
  * Firebase App Initialization
  * ---------------------------------------------------------------------------
  * The only file that should call `initializeApp`. Every other module in
- * src/lib/firebase imports `app`, `auth`, `db`, `storage`, `messaging` from
+ * src/lib/firebase imports `app`, `auth`, `db`, and `messaging` from
  * here. Guards against the "duplicate app" error that Next.js hot-reload and
  * SSR/CSR double-invocation otherwise cause.
  */
@@ -14,7 +14,6 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager,
 } from "firebase/firestore";
-import { type FirebaseStorage, getStorage } from "firebase/storage";
 import { resolveFirebaseEnvironment } from "@/lib/config/environment";
 
 const resolvedFirebaseEnvironment = resolveFirebaseEnvironment(
@@ -25,8 +24,6 @@ const resolvedFirebaseEnvironment = resolveFirebaseEnvironment(
       process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
     NEXT_PUBLIC_FIREBASE_PROJECT_ID:
       process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:
-      process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:
       process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     NEXT_PUBLIC_FIREBASE_APP_ID:
@@ -117,5 +114,3 @@ function createFirestore(): Firestore {
 }
 
 export const db: Firestore = createFirestore();
-
-export const storage: FirebaseStorage = getStorage(app);

@@ -1,24 +1,41 @@
 # Firebase Rules Emulator Checklist
 
-This repository does not include `@firebase/rules-unit-testing` or an existing
-rules-test harness. Use this checklist with the Firebase Emulator Suite before
-deploying `firestore.rules` or `storage.rules`. Do not use production data or
-credentials.
+Use this checklist with the Firebase Emulator Suite before deploying active
+Firestore rules. Do not use production data or credentials. Meal-photo
+Firebase Storage deployment is inactive: meal images are analyzed
+ephemerally, never persisted, and do not require Firebase Storage.
 
 ## Setup
 
 1. Install or invoke an approved Firebase CLI version outside the application
-   dependency tree.
-2. Select a non-production Firebase project alias.
-3. Start the local emulators:
+   dependency tree and confirm that Java is available.
+2. Start the Authentication, Firestore, Storage, and Emulator UI services
+   against the local-only demo project:
 
    ```text
-   firebase emulators:start --only firestore,storage
+   npm run emulator:rules
    ```
 
-4. Use two synthetic authenticated users (`owner-user` and `other-user`) plus
-   an unauthenticated client. Clear emulator data between cases where existing
-   state would affect the result.
+   This command always supplies
+   `--project demo-natassha-health-coach`; it does not require credentials or
+   select a production Firebase project.
+
+3. Confirm these localhost endpoints:
+
+   | Service | Endpoint |
+   |---|---|
+   | Emulator UI | `http://127.0.0.1:4000` |
+   | Firestore | `127.0.0.1:8080` |
+   | Authentication | `127.0.0.1:9099` |
+   | Storage | `127.0.0.1:9199` |
+
+4. Use two synthetic Authentication emulator users (`owner-user` and
+   `other-user`) plus an unauthenticated client. Clear emulator data between
+   cases where existing state would affect the result.
+
+5. Use the Emulator UI Rules evaluation tools and local SDK clients connected
+   only to the endpoints above to execute every case below. Record each case
+   as PASS, FAIL, or BLOCKED.
 
 ## Firestore
 
@@ -42,6 +59,10 @@ path uid equals the authenticated uid, `reports` remains client-read-only, and
 `ai_logs` remains append-only.
 
 ## Storage
+
+These cases validate rollback rules only. Do not deploy Storage for the active
+meal-photo flow and do not interpret a passing result as authorization to
+restore persistent photo uploads.
 
 Use paths shaped exactly like the application builders:
 `users/{uid}/meal_photos/{fileName}` and

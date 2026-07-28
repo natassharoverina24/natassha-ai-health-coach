@@ -1,4 +1,4 @@
-import { Image as ImageIcon, Pencil, Plus, Trash2, UtensilsCrossed } from "lucide-react";
+import { Pencil, Plus, Trash2, UtensilsCrossed } from "lucide-react";
 
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Badge } from "@/components/ui/Badge";
@@ -77,12 +77,6 @@ export function MealTypeSection({
                   <p className="text-sm font-semibold text-ink">{meal.name}</p>
                   {meal.quantity && <span className="text-xs text-ink-muted">· {meal.quantity}</span>}
                   {meal.isOfficeLunch && <Badge tone="rose">Office lunch</Badge>}
-                  {meal.photoIds.length > 0 && (
-                    <span className="flex items-center gap-0.5 text-xs text-ink-faint">
-                      <ImageIcon size={12} />
-                      {meal.photoIds.length}
-                    </span>
-                  )}
                 </div>
                 <p className="mt-0.5 text-xs text-ink-muted">
                   {formatCalories(meal.macros.calories)} · P {formatGrams(meal.macros.proteinG)} · C{" "}

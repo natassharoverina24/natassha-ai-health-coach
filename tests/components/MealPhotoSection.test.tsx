@@ -1,101 +1,169 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { MealPhotoSection } from "@/components/meal/MealPhotoSection";
-import type { MealPhoto } from "@/types/firestore";
+import type { MealPhotoAnalysis } from "@/lib/ai/mealPhotoAnalysis";
 
-function makePhoto(overrides: Partial<MealPhoto> = {}): MealPhoto {
-  return {
-    id: "photo-1",
-    createdAt: "2026-07-25T00:00:00.000Z",
-    updatedAt: "2026-07-25T00:00:00.000Z",
-    userId: "user-1",
-    mealId: "meal-1",
-    storagePath: "users/user-1/meal_photos/1.jpg",
-    downloadURL: "https://firebasestorage.googleapis.com/meal.jpg",
-    width: null,
-    height: null,
-    aiAnalyzed: false,
-    ...overrides,
-  };
-}
+const analysis: MealPhotoAnalysis = {
+  items: [{ name: "Visible meal", estimatedPortion: "about one plate" }],
+  estimatedCalories: 420,
+  estimatedProteinG: 24,
+  confidence: "low",
+  uncertain: true,
+  assumptions: ["Serving depth is not visible."],
+  estimatedAt: "2026-07-28T01:00:00.000Z",
+};
 
 describe("MealPhotoSection", () => {
-  it("renders both capture entry points", () => {
-    render(
-      <MealPhotoSection
-        photos={[]}
-        onUploadFile={jest.fn()}
-        onDeletePhoto={jest.fn()}
-        uploading={false}
-        uploadError={null}
-        deletingPhotoId={null}
-      />,
-    );
-    expect(screen.getByRole("button", { name: /take photo/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /choose from gallery/i })).toBeInTheDocument();
+  const createObjectURL = jest.fn(() => "blob:local-preview");
+  const revokeObjectURL = jest.fn();
+
+  beforeEach(() => {
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeObjectURL,
+    });
   });
 
-  it("renders a thumbnail for each existing photo", () => {
-    render(
-      <MealPhotoSection
-        photos={[makePhoto(), makePhoto({ id: "photo-2" })]}
-        onUploadFile={jest.fn()}
-        onDeletePhoto={jest.fn()}
-        uploading={false}
-        uploadError={null}
-        deletingPhotoId={null}
-      />,
-    );
-    expect(screen.getAllByAltText("Meal photo")).toHaveLength(2);
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
-  it("calls onDeletePhoto with the photo when its delete button is clicked", async () => {
-    const onDeletePhoto = jest.fn().mockResolvedValue(undefined);
-    const photo = makePhoto();
+  it("renders camera and supported-image upload controls", () => {
     render(
       <MealPhotoSection
-        photos={[photo]}
-        onUploadFile={jest.fn()}
-        onDeletePhoto={onDeletePhoto}
-        uploading={false}
-        uploadError={null}
-        deletingPhotoId={null}
+        onAnalyzeFile={jest.fn()}
+        onConfirm={jest.fn()}
       />,
     );
-    await userEvent.click(screen.getByLabelText("Delete photo"));
-    expect(onDeletePhoto).toHaveBeenCalledWith(photo);
+    expect(
+      screen.getByRole("button", { name: /take photo/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /choose image/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Choose a meal image")).toHaveAttribute(
+      "accept",
+      "image/jpeg,image/png,image/webp",
+    );
+    expect(screen.getByText(/image is analyzed temporarily/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /upload food photos only.*do not include faces, documents, addresses/i,
+      ),
+    ).toBeInTheDocument();
   });
 
-  it("shows the upload error message when present", () => {
+  it("rejects an unsupported MIME type before analysis", async () => {
+    const onAnalyzeFile = jest.fn();
     render(
       <MealPhotoSection
-        photos={[]}
-        onUploadFile={jest.fn()}
-        onDeletePhoto={jest.fn()}
-        uploading={false}
-        uploadError="Image is too large (max 10MB)."
-        deletingPhotoId={null}
+        onAnalyzeFile={onAnalyzeFile}
+        onConfirm={jest.fn()}
       />,
     );
-    expect(screen.getByText("Image is too large (max 10MB).")).toBeInTheDocument();
+    const file = new File(["not-image"], "meal.gif", { type: "image/gif" });
+
+    await userEvent.upload(screen.getByLabelText("Choose a meal image"), file, {
+      applyAccept: false,
+    });
+
+    expect(screen.getByText(/choose a JPEG, PNG, or WebP/i)).toBeInTheDocument();
+    expect(onAnalyzeFile).not.toHaveBeenCalled();
+    expect(createObjectURL).not.toHaveBeenCalled();
   });
 
-  it("passes the selected file to onUploadFile", async () => {
-    const onUploadFile = jest.fn().mockResolvedValue(undefined);
+  it("renders uncertain editable estimates and persists only after confirmation", async () => {
+    const onConfirm = jest.fn().mockResolvedValue(undefined);
     render(
       <MealPhotoSection
-        photos={[]}
-        onUploadFile={onUploadFile}
-        onDeletePhoto={jest.fn()}
-        uploading={false}
-        uploadError={null}
-        deletingPhotoId={null}
+        onAnalyzeFile={jest.fn().mockResolvedValue(analysis)}
+        onConfirm={onConfirm}
       />,
     );
-    const file = new File(["fake-bytes"], "lunch.jpg", { type: "image/jpeg" });
-    const galleryInput = screen.getByLabelText("Choose a photo from gallery");
-    await userEvent.upload(galleryInput, file);
-    expect(onUploadFile).toHaveBeenCalledWith(file);
+    const file = new File(["image"], "meal.jpg", { type: "image/jpeg" });
+    await userEvent.upload(screen.getByLabelText("Choose a meal image"), file);
+
+    expect(
+      await screen.findByText(/low confidence.*uncertain/i),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Food name")).toHaveValue("Visible meal");
+    expect(screen.getByLabelText("Estimated portion")).toHaveValue(
+      "about one plate",
+    );
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    await userEvent.clear(screen.getByLabelText("Food name"));
+    await userEvent.type(screen.getByLabelText("Food name"), "Corrected meal");
+    await userEvent.clear(screen.getByLabelText("Estimated portion"));
+    await userEvent.type(screen.getByLabelText("Estimated portion"), "2 bowls");
+    await userEvent.clear(screen.getByLabelText("Estimated calories"));
+    await userEvent.type(screen.getByLabelText("Estimated calories"), "510");
+    await userEvent.clear(screen.getByLabelText("Estimated protein"));
+    await userEvent.type(screen.getByLabelText("Estimated protein"), "31");
+    await userEvent.click(
+      screen.getByRole("button", { name: /confirm and update meal/i }),
+    );
+
+    await waitFor(() =>
+      expect(onConfirm).toHaveBeenCalledWith({
+        foodName: "Corrected meal",
+        portion: "2 bowls",
+        calories: 510,
+        proteinG: 31,
+        source: "photo-estimate",
+        userConfirmed: true,
+        estimatedAt: analysis.estimatedAt,
+      }),
+    );
+  });
+
+  it("revokes temporary object URLs when replaced and on unmount", async () => {
+    const onAnalyzeFile = jest.fn().mockResolvedValue(analysis);
+    const { unmount } = render(
+      <MealPhotoSection
+        onAnalyzeFile={onAnalyzeFile}
+        onConfirm={jest.fn()}
+      />,
+    );
+    const input = screen.getByLabelText("Choose a meal image");
+    await userEvent.upload(
+      input,
+      new File(["one"], "one.jpg", { type: "image/jpeg" }),
+    );
+    await screen.findByText(/low confidence/i);
+    await userEvent.upload(
+      input,
+      new File(["two"], "two.png", { type: "image/png" }),
+    );
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:local-preview");
+
+    unmount();
+    expect(revokeObjectURL).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows a sanitized provider failure without persisting anything", async () => {
+    const onConfirm = jest.fn();
+    render(
+      <MealPhotoSection
+        onAnalyzeFile={jest
+          .fn()
+          .mockRejectedValue(new Error("Meal-photo analysis provider failed."))}
+        onConfirm={onConfirm}
+      />,
+    );
+    await userEvent.upload(
+      screen.getByLabelText("Choose a meal image"),
+      new File(["private-image-bytes"], "meal.webp", { type: "image/webp" }),
+    );
+    expect(
+      await screen.findByText("Meal-photo analysis provider failed."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("private-image-bytes")).not.toBeInTheDocument();
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 });

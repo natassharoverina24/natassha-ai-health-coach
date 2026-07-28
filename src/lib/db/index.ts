@@ -3,7 +3,6 @@ export * from "./users.repository";
 export * from "./weights.repository";
 export * from "./waists.repository";
 export * from "./meals.repository";
-export * from "./mealPhotos.repository";
 export * from "./supplements.repository";
 export * from "./waterLogs.repository";
 export * from "./workouts.repository";

@@ -1,72 +1,159 @@
 "use client";
 
-import { useRef } from "react";
-import type { ChangeEvent } from "react";
-import Image from "next/image";
-import { Camera, ImagePlus, X } from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
+import { Camera, ImagePlus } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
-import { Spinner } from "@/components/ui/Spinner";
+import { Input } from "@/components/ui/Input";
+import {
+  isSupportedMealImageType,
+  type ConfirmedMealPhotoEstimate,
+  type MealPhotoAnalysis,
+} from "@/lib/ai/mealPhotoAnalysis";
 import { cn } from "@/lib/utils/cn";
-import type { MealPhoto } from "@/types/firestore";
 
 export interface MealPhotoSectionProps {
-  photos: MealPhoto[];
-  onUploadFile: (file: File) => Promise<void>;
-  onDeletePhoto: (photo: MealPhoto) => Promise<void>;
-  uploading: boolean;
-  uploadError: string | null;
-  deletingPhotoId: string | null;
+  onAnalyzeFile: (file: File) => Promise<MealPhotoAnalysis>;
+  onConfirm: (estimate: ConfirmedMealPhotoEstimate) => Promise<void>;
   className?: string;
 }
 
-/**
- * Two capture entry points on one <input type="file" accept="image/*">
- * each: `capture="environment"` opens the device camera directly on
- * mobile browsers that support it, while the plain input opens the
- * system's normal file/gallery picker. On desktop `capture` is simply
- * ignored, so both buttons degrade to the same file-upload dialog —
- * satisfying "Camera & Gallery (mobile) / File upload (web)" from a
- * single, standard HTML control rather than a native-only API.
- */
 export function MealPhotoSection({
-  photos,
-  onUploadFile,
-  onDeletePhoto,
-  uploading,
-  uploadError,
-  deletingPhotoId,
+  onAnalyzeFile,
+  onConfirm,
   className,
 }: MealPhotoSectionProps) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<MealPhotoAnalysis | null>(null);
+  const [foodName, setFoodName] = useState("");
+  const [portion, setPortion] = useState("");
+  const [calories, setCalories] = useState("");
+  const [proteinG, setProteinG] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-selecting the same file later
+  const releasePreview = () => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    setPreviewUrl(null);
+  };
+
+  useEffect(() => () => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+  }, []);
+
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
-    await onUploadFile(file);
+    if (!isSupportedMealImageType(file.type)) {
+      setError("Choose a JPEG, PNG, or WebP image.");
+      return;
+    }
+
+    releasePreview();
+    const objectUrl = URL.createObjectURL(file);
+    previewUrlRef.current = objectUrl;
+    setPreviewUrl(objectUrl);
+    setAnalysis(null);
+    setError(null);
+    setAnalyzing(true);
+    try {
+      const result = await onAnalyzeFile(file);
+      setAnalysis(result);
+      setFoodName(result.items.map((item) => item.name).join(", "));
+      setPortion(
+        result.items.map((item) => item.estimatedPortion).join("; "),
+      );
+      setCalories(String(result.estimatedCalories));
+      setProteinG(String(result.estimatedProteinG));
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Meal-photo analysis could not be completed.",
+      );
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleConfirm = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!analysis) return;
+    const parsedCalories = Number(calories);
+    const parsedProtein = Number(proteinG);
+    if (
+      !foodName.trim() ||
+      !portion.trim() ||
+      !Number.isFinite(parsedCalories) ||
+      parsedCalories < 0 ||
+      !Number.isFinite(parsedProtein) ||
+      parsedProtein < 0
+    ) {
+      setError("Review every estimate before confirming.");
+      return;
+    }
+
+    setConfirming(true);
+    setError(null);
+    try {
+      await onConfirm({
+        foodName: foodName.trim(),
+        portion: portion.trim(),
+        calories: parsedCalories,
+        proteinG: parsedProtein,
+        source: "photo-estimate",
+        userConfirmed: true,
+        estimatedAt: analysis.estimatedAt,
+      });
+      setAnalysis(null);
+      releasePreview();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Confirmed estimates could not be saved.",
+      );
+    } finally {
+      setConfirming(false);
+    }
   };
 
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
-      {photos.length > 0 && (
-        <div className="flex flex-wrap gap-3">
-          {photos.map((photo) => (
-            <div key={photo.id} className="group relative h-24 w-24 overflow-hidden rounded-control">
-              <Image src={photo.downloadURL} alt="Meal photo" fill sizes="96px" className="object-cover" />
-              <button
-                type="button"
-                onClick={() => void onDeletePhoto(photo)}
-                disabled={deletingPhotoId === photo.id}
-                aria-label="Delete photo"
-                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white transition-opacity hover:bg-danger disabled:opacity-50"
-              >
-                {deletingPhotoId === photo.id ? <Spinner size={12} /> : <X size={14} />}
-              </button>
-            </div>
-          ))}
-        </div>
+    <section className={cn("flex flex-col gap-3", className)}>
+      <div>
+        <p className="text-sm font-medium text-ink">Analyze a meal photo</p>
+        <p className="text-xs text-ink-muted">
+          The image is analyzed temporarily and is never saved. Estimates are
+          uncertain and editable.
+        </p>
+        <p className="mt-1 text-xs font-medium text-amber-700">
+          Upload food photos only. Do not include faces, documents, addresses,
+          or other sensitive information.
+        </p>
+      </div>
+
+      {previewUrl && (
+        // A local object URL is intentionally used instead of a persisted URL.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={previewUrl}
+          alt="Local meal preview"
+          className="max-h-56 w-full rounded-control object-contain"
+        />
       )}
 
       <div className="flex gap-2">
@@ -75,7 +162,7 @@ export function MealPhotoSection({
           size="sm"
           variant="secondary"
           leadingIcon={<Camera size={14} />}
-          isLoading={uploading}
+          isLoading={analyzing}
           onClick={() => cameraInputRef.current?.click()}
         >
           Take photo
@@ -85,32 +172,92 @@ export function MealPhotoSection({
           size="sm"
           variant="ghost"
           leadingIcon={<ImagePlus size={14} />}
-          isLoading={uploading}
+          isLoading={analyzing}
           onClick={() => galleryInputRef.current?.click()}
         >
-          Choose from gallery
+          Choose image
         </Button>
       </div>
-
-      {uploadError && <p className="text-xs text-danger">{uploadError}</p>}
 
       <input
         ref={cameraInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         capture="environment"
         onChange={handleFileChange}
         className="hidden"
-        aria-label="Take a photo"
+        aria-label="Take a meal photo"
       />
       <input
         ref={galleryInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         onChange={handleFileChange}
         className="hidden"
-        aria-label="Choose a photo from gallery"
+        aria-label="Choose a meal image"
       />
-    </div>
+
+      {analysis && (
+        <form onSubmit={handleConfirm} className="flex flex-col gap-3">
+          <p role="status" className="text-xs font-medium text-amber-700">
+            AI estimate: {analysis.confidence} confidence. Uncertain — review
+            and correct every value before saving.
+          </p>
+          <Input
+            name="photoEstimateFood"
+            label="Food name"
+            value={foodName}
+            onChange={(event) => setFoodName(event.target.value)}
+            required
+          />
+          <Input
+            name="photoEstimatePortion"
+            label="Estimated portion"
+            value={portion}
+            onChange={(event) => setPortion(event.target.value)}
+            required
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              name="photoEstimateCalories"
+              type="number"
+              min="0"
+              step="any"
+              label="Estimated calories"
+              suffix="kcal"
+              value={calories}
+              onChange={(event) => setCalories(event.target.value)}
+              required
+            />
+            <Input
+              name="photoEstimateProtein"
+              type="number"
+              min="0"
+              step="any"
+              label="Estimated protein"
+              suffix="g"
+              value={proteinG}
+              onChange={(event) => setProteinG(event.target.value)}
+              required
+            />
+          </div>
+          {analysis.assumptions.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-ink-muted">Assumptions</p>
+              <ul className="list-disc pl-5 text-xs text-ink-muted">
+                {analysis.assumptions.map((assumption) => (
+                  <li key={assumption}>{assumption}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <Button type="submit" isLoading={confirming}>
+            Confirm and update meal
+          </Button>
+        </form>
+      )}
+
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </section>
   );
 }

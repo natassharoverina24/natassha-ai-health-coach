@@ -93,22 +93,13 @@ export interface MealEntry extends BaseDocument {
   isOfficeLunch: boolean;
   macros: MealMacro;
   photoIds: string[];
+  photoEstimate?: {
+    source: "photo-estimate";
+    userConfirmed: true;
+    estimatedAt: ISODateString;
+  };
   score: number | null; // 0-100 adherence score, computed by business logic later
   note: string | null;
-}
-
-// -----------------------------------------------------------------------------
-// meal_photos
-// -----------------------------------------------------------------------------
-
-export interface MealPhoto extends BaseDocument {
-  userId: string;
-  mealId: string | null;
-  storagePath: string;
-  downloadURL: string;
-  width: number | null;
-  height: number | null;
-  aiAnalyzed: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -307,7 +298,6 @@ export const COLLECTIONS = {
   weights: "weights",
   waists: "waists",
   meals: "meals",
-  mealPhotos: "meal_photos",
   supplements: "supplements",
   supplementLogs: "supplement_logs",
   waterLogs: "water_logs",

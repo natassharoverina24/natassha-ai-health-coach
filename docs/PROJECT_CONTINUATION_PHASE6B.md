@@ -42,7 +42,7 @@
 
 - 17 Firestore collections typed in `src/types/firestore.ts` with `COLLECTIONS` constant: `users`, `weights`, `waists`, `meals`, `meal_photos`, `supplements`, `supplement_logs`, `water_logs`, `workouts`, `sleep_logs`, `motivations`, `shopping`, `reports`, `cycles`, `settings`, `ai_logs`
 - Generic repository pattern: `src/lib/db/baseRepository.ts` → one repository file per collection (15 repos total under `src/lib/db/`)
-- Firebase layer: `src/lib/firebase/` (config with offline persistence, auth with Google sign-in, firestore CRUD, storage upload/delete, messaging)
+- Firebase layer: `src/lib/firebase/` (config with offline persistence, auth with Google sign-in, Firestore CRUD, messaging; meal photos use ephemeral server-side analysis and not Firebase Storage)
 - Design system: Soft Pink / Apple Health / glassmorphism theme in `src/app/globals.css`, light + dark mode
 - Reusable UI components: `src/components/ui/` (Button, GlassCard, Badge, Input, Modal, Skeleton, Avatar, ProgressBar, Spinner, EmptyState)
 - Layout components: `src/components/layout/` (Sidebar, BottomNav, TopBar, AppShell, PageHeader)
@@ -73,12 +73,12 @@
 ### Phase 2B — Meal History & Photos
 
 **New/modified files:**
-- `src/components/meal/MealPhotoSection.tsx` — camera capture + gallery upload via two `<input type="file">` elements (one with `capture="environment"` for mobile camera, one plain for gallery/desktop)
+- `src/components/meal/MealPhotoSection.tsx` — camera capture or supported image selection, local temporary preview, uncertain editable analysis, and explicit confirmation without persistent image storage
 - `src/components/meal/MealDetailModal.tsx` — full detail view: photo, food name, all 5 macros, notes, time, edit/delete actions
 - `src/components/meal/MealTypeSection.tsx` — **modified**: added `onView` prop, clickable row body, photo-count indicator badge
 - `src/app/(app)/meal/page.tsx` — **modified**: date picker for history browsing, photo upload/delete orchestration (Storage + Firestore), MealDetailModal wiring
 - `src/lib/db/mealPhotos.repository.ts` — **modified**: added `subscribeForMeal()` live subscription
-- `next.config.ts` — **modified**: added `firebasestorage.googleapis.com` to `images.remotePatterns`
+- `next.config.ts` — Firebase Storage meal-photo image hosting is inactive
 - `src/lib/utils/format.ts` — **modified**: added `formatTimeLabel()` (ISO → "8:32 AM")
 
 ### Phase 2C — Weekly Progress & Coach Dashboard

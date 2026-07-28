@@ -6,11 +6,13 @@ import { CalendarDays } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFirestoreCollection, useFirestoreDoc } from "@/hooks";
 import { mealsRepository } from "@/lib/db/meals.repository";
-import { mealPhotosRepository } from "@/lib/db/mealPhotos.repository";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { weightsRepository } from "@/lib/db/weights.repository";
 import { settingsRepository } from "@/lib/db/settings.repository";
-import { buildMealPhotoPath, deleteFile, uploadFile } from "@/lib/firebase/storage";
+import {
+  compressMealPhotoImage,
+  requestMealPhotoAnalysis,
+} from "@/lib/ai/mealPhotoClient";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -33,7 +35,17 @@ import {
 import { DEFAULT_GOALS } from "@/lib/utils/constants";
 import { formatCalories, formatDateLabel, todayISODate } from "@/lib/utils/format";
 import { sumMacros } from "@/lib/utils/nutritionEstimates";
-import type { MealEntry, MealPhoto, MealType, UserSettings, WaterLogEntry } from "@/types/firestore";
+import type {
+  ConfirmedMealPhotoEstimate,
+  MealPhotoAnalysis,
+} from "@/lib/ai/mealPhotoAnalysis";
+import { buildConfirmedMealUpdate } from "@/lib/ai/mealPhotoAnalysis";
+import type {
+  MealEntry,
+  MealType,
+  UserSettings,
+  WaterLogEntry,
+} from "@/types/firestore";
 
 const TYPE_LABEL: Record<MealType, string> = {
   breakfast: "Breakfast",
@@ -43,8 +55,6 @@ const TYPE_LABEL: Record<MealType, string> = {
 };
 
 const TYPE_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
-const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10MB
-
 type AddModalState = { type: MealType } | null;
 
 export default function MealPage() {
@@ -64,9 +74,6 @@ export default function MealPage() {
   const [viewingMeal, setViewingMeal] = useState<MealEntry | null>(null);
   const [officeLunchModalOpen, setOfficeLunchModalOpen] = useState(false);
   const [addingWaterAmount, setAddingWaterAmount] = useState<number | null>(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [photoUploadError, setPhotoUploadError] = useState<string | null>(null);
-  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
 
   const { data: meals, loading: mealsLoading } = useFirestoreCollection<MealEntry>(
     uid ? (onData, onError) => mealsRepository.subscribeForUserByDate(uid, viewDate, onData, onError) : null,
@@ -83,11 +90,6 @@ export default function MealPage() {
   const { data: settings } = useFirestoreDoc<UserSettings>(
     uid ? (onData, onError) => settingsRepository.subscribeForUser(uid, onData, onError) : null,
     [uid],
-  );
-
-  const { data: viewingMealPhotos } = useFirestoreCollection<MealPhoto>(
-    viewingMeal ? (onData, onError) => mealPhotosRepository.subscribeForMeal(viewingMeal.id, onData, onError) : null,
-    [viewingMeal?.id],
   );
 
   const goals = {
@@ -167,57 +169,27 @@ export default function MealPage() {
     setOfficeLunchModalOpen(false);
   };
 
-  // ---- Meal photos ---------------------------------------------------------
+  // ---- Ephemeral meal-photo analysis --------------------------------------
 
-  const handleUploadPhoto = async (file: File) => {
-    if (!uid || !viewingMeal) return;
-    if (!file.type.startsWith("image/")) {
-      setPhotoUploadError("Please choose an image file.");
-      return;
-    }
-    if (file.size > MAX_PHOTO_BYTES) {
-      setPhotoUploadError("Image is too large (max 10MB).");
-      return;
-    }
-
-    setUploadingPhoto(true);
-    setPhotoUploadError(null);
-    try {
-      const path = buildMealPhotoPath(uid, file.name);
-      const { storagePath, downloadURL } = await uploadFile(path, file);
-      const photoId = await mealPhotosRepository.create({
-        userId: uid,
-        mealId: viewingMeal.id,
-        storagePath,
-        downloadURL,
-        width: null,
-        height: null,
-        aiAnalyzed: false,
-      });
-      const updatedPhotoIds = [...viewingMeal.photoIds, photoId];
-      await mealsRepository.update(viewingMeal.id, { photoIds: updatedPhotoIds });
-      setViewingMeal({ ...viewingMeal, photoIds: updatedPhotoIds });
-    } catch (err) {
-      setPhotoUploadError(err instanceof Error ? err.message : "Failed to upload photo.");
-    } finally {
-      setUploadingPhoto(false);
-    }
+  const handleAnalyzePhoto = async (file: File): Promise<MealPhotoAnalysis> => {
+    const compressed = await compressMealPhotoImage(file);
+    return requestMealPhotoAnalysis(compressed);
   };
 
-  const handleDeletePhoto = async (photo: MealPhoto) => {
+  const handleConfirmPhotoEstimate = async (
+    estimate: ConfirmedMealPhotoEstimate,
+  ) => {
     if (!viewingMeal) return;
-    setDeletingPhotoId(photo.id);
-    try {
-      await deleteFile(photo.storagePath);
-      await mealPhotosRepository.remove(photo.id);
-      const updatedPhotoIds = viewingMeal.photoIds.filter((id) => id !== photo.id);
-      await mealsRepository.update(viewingMeal.id, { photoIds: updatedPhotoIds });
-      setViewingMeal({ ...viewingMeal, photoIds: updatedPhotoIds });
-    } catch (err) {
-      setPhotoUploadError(err instanceof Error ? err.message : "Failed to delete photo.");
-    } finally {
-      setDeletingPhotoId(null);
-    }
+    const confirmedUpdate = buildConfirmedMealUpdate(
+      viewingMeal.macros,
+      estimate,
+    );
+    const updatedMeal: MealEntry = {
+      ...viewingMeal,
+      ...confirmedUpdate,
+    };
+    await mealsRepository.update(viewingMeal.id, confirmedUpdate);
+    setViewingMeal(updatedMeal);
   };
 
   // ---- Water ---------------------------------------------------------------
@@ -379,21 +351,14 @@ export default function MealPage() {
 
       <MealDetailModal
         meal={viewingMeal}
-        photos={viewingMealPhotos}
-        onClose={() => {
-          setViewingMeal(null);
-          setPhotoUploadError(null);
-        }}
+        onClose={() => setViewingMeal(null)}
         onEdit={(meal) => {
           setViewingMeal(null);
           setEditingMeal(meal);
         }}
         onDelete={handleDeleteMeal}
-        onUploadPhoto={handleUploadPhoto}
-        onDeletePhoto={handleDeletePhoto}
-        uploadingPhoto={uploadingPhoto}
-        photoUploadError={photoUploadError}
-        deletingPhotoId={deletingPhotoId}
+        onAnalyzePhoto={handleAnalyzePhoto}
+        onConfirmPhotoEstimate={handleConfirmPhotoEstimate}
       />
     </div>
   );

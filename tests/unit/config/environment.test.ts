@@ -10,7 +10,6 @@ const configuredValues: FirebaseEnvironmentValues = {
   NEXT_PUBLIC_FIREBASE_API_KEY: "api-key",
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "project.firebaseapp.com",
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: "project-id",
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "project.appspot.com",
   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "123456789",
   NEXT_PUBLIC_FIREBASE_APP_ID: "1:123456789:web:abcdef",
 };
@@ -24,6 +23,14 @@ describe("Firebase environment validation", () => {
       expect(result.config.projectId).toBe("project-id");
       expect(result.missingVariables).toEqual([]);
     }
+  });
+
+  it("does not require Firebase Storage configuration", () => {
+    const result = validateFirebaseEnvironment(
+      { ...configuredValues, NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: undefined },
+      "production",
+    );
+    expect(result.status).toBe("configured");
   });
 
   it("reports every missing production variable deterministically", () => {
