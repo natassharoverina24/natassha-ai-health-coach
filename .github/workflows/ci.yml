@@ -17,6 +17,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     env:
       NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
       NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
@@ -42,21 +43,13 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit
 
-            - name: ESLint
+      - name: ESLint
         run: npm run lint
 
       - name: Jest
         run: npm test -- --coverage=false --runInBand --testPathIgnorePatterns=tests/firebase
 
       - name: Firebase security rules
-        run: npm run test:rules
-
-      - name: Production build
-        run: npm run build
-
-      - name: Jest
-        run: npm test -- --coverage=false --runInBand --testPathIgnorePatterns=tests/firebase
-        - name: Firebase security rules
         run: npm run test:rules
 
       - name: Production build
