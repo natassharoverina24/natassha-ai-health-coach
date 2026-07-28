@@ -30,6 +30,7 @@ import {
   computeTrailingWeeklyChangesKg,
 } from "@/lib/coach";
 import type { DailyGoals } from "@/lib/coach/types";
+import type { PlannerUserContext } from "@/lib/planner";
 
 import {
   runBehaviorEngine,
@@ -57,6 +58,36 @@ export interface AICoachContext {
   profile: UserProfile;
   goals: DailyGoals;
   generatedAt: string;
+}
+
+/** Builds the validated context consumed by the pure Planning Layer. */
+export async function buildPlannerUserContext(
+  userId: string,
+): Promise<PlannerUserContext> {
+  const [profile, settings] = await Promise.all([
+    usersRepository.getByUid(userId),
+    settingsRepository.getForUser(userId),
+  ]);
+  if (!profile) {
+    throw new Error(`No profile found for user ${userId}`);
+  }
+
+  const now = new Date();
+  return {
+    today: todayISODate(),
+    currentHour: now.getHours(),
+    currentMinute: now.getMinutes(),
+    leaveHomeTime: profile.leaveHomeTime,
+    arriveHomeTime: profile.arriveHomeTime,
+    lunchProvidedByOffice: profile.lunchProvidedByOffice,
+    calorieGoal: settings?.calorieGoal ?? DEFAULT_GOALS.calorieGoal,
+    proteinGoalG: settings?.proteinGoalG ?? DEFAULT_GOALS.proteinGoalG,
+    waterGoalMl: settings?.waterGoalMl ?? DEFAULT_GOALS.waterGoalMl,
+    workoutGoalMinPerDay:
+      settings?.workoutGoalMinPerDay ?? DEFAULT_GOALS.workoutGoalMinPerDay,
+    stepsGoal: settings?.stepsGoal ?? DEFAULT_GOALS.stepsGoal,
+    sleepGoalHours: settings?.sleepGoalHours ?? DEFAULT_GOALS.sleepGoalHours,
+  };
 }
 
 /** Fetches everything the engines need and shapes it into their inputs; this is intentionally the only "wide" function in the file — see the individual `run*Engine` calls for what actually decides anything. */
