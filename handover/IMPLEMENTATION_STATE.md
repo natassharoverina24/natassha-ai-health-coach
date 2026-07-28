@@ -18,7 +18,7 @@ Every completed phase, with every file, function, type, design decision, and int
 - `src/types/firestore.ts` — all Firestore types, `COLLECTIONS` constant, `BaseDocument`, `UserProfile`, `UserSettings`, `MealEntry`, `MealMacro`, `WeightEntry`, `WaistEntry`, `MealPhoto`, `WorkoutEntry`, `SleepEntry`, `MotivationEntry`, `SupplementEntry`, `ShoppingItem`, `CycleEntry`, `ReportEntry`, `WaterLogEntry`
 - `src/lib/db/baseRepository.ts` — generic `createRepository<T>()` with CRUD, `list()`, `subscribe()`
 - `src/lib/db/*.repository.ts` — 15 repositories: `users`, `weights`, `waists`, `meals`, `mealPhotos`, `supplements`, `waterLogs`, `workouts`, `sleepLogs`, `motivations`, `shopping`, `reports`, `cycles`, `settings`, `aiLogs`
-- `src/lib/firebase/` — `config.ts` (graceful degradation without env vars), `auth.ts` (Google sign-in), `firestore.ts`, `storage.ts` (`uploadFile`, `deleteFile`, `buildMealPhotoPath`), `messaging.ts`
+- `src/lib/firebase/` — `config.ts` (graceful degradation without env vars), `auth.ts` (Google sign-in), `firestore.ts`, and `messaging.ts`; Firebase Storage is inactive for meal photos
 - `src/lib/utils/` — `constants.ts` (`DEFAULT_GOALS`, `DEFAULT_USER_PROFILE`, `NAV_ITEMS`), `format.ts` (20+ formatters), `cn.ts` (tailwind merge), `nutritionEstimates.ts`, `syncQueue.ts`
 - `src/components/ui/` — Button, GlassCard, Badge, Input, Modal, Skeleton, Avatar, ProgressBar, Spinner, EmptyState
 - `src/components/layout/` — AppShell, Sidebar, BottomNav, TopBar, PageHeader
@@ -67,7 +67,7 @@ Every completed phase, with every file, function, type, design decision, and int
 **Purpose:** Date-based meal browsing, food photo upload/preview/delete, meal detail modal.
 
 **Files created:**
-- `src/components/meal/MealPhotoSection.tsx` — camera + gallery upload (two `<input type="file">`)
+- `src/components/meal/MealPhotoSection.tsx` — camera/image selection, local preview, ephemeral Gemini Free Tier analysis, privacy warning, editable uncertainty-labelled estimates, and explicit confirmation
 - `src/components/meal/MealDetailModal.tsx` — photo, macros, notes, time, edit/delete
 
 **Modified:**

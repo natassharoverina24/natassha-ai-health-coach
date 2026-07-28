@@ -7,8 +7,6 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       // Google account profile photos, used by Auth (see components/ui/Avatar.tsx)
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
-      // Firebase Storage download URLs, used for meal photos (see components/meal/MealPhotoSection.tsx)
-      { protocol: "https", hostname: "firebasestorage.googleapis.com" },
     ],
   },
 

@@ -62,9 +62,10 @@ service cloud.firestore {
     }
 
     match /meal_photos/{docId} {
+      // Legacy metadata is readable/deletable by its owner for rollback and
+      // cleanup, but the ephemeral analysis flow never creates or updates it.
       allow read, delete: if ownsExistingDoc();
-      allow create: if ownsIncomingDoc();
-      allow update: if ownsUpdatedDoc();
+      allow create, update: if false;
     }
 
     match /supplements/{docId} {
