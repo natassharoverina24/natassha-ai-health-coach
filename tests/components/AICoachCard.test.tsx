@@ -3,7 +3,10 @@ import userEvent from "@testing-library/user-event";
 
 import { AICoachCard } from "@/components/dashboard/AICoachCard";
 import { useAuth } from "@/contexts/AuthContext";
-import { buildCoachDecision } from "@/lib/ai/contextBuilder";
+import {
+  buildCoachDecision,
+  buildPlannerUserContext,
+} from "@/lib/ai/contextBuilder";
 import { generateCoachReply } from "@/lib/ai/responseLayer";
 import { mealsRepository } from "@/lib/db/meals.repository";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
@@ -19,6 +22,7 @@ jest.mock("@/contexts/AuthContext", () => ({
 }));
 jest.mock("@/lib/ai/contextBuilder", () => ({
   buildCoachDecision: jest.fn(),
+  buildPlannerUserContext: jest.fn(),
 }));
 jest.mock("@/lib/ai/responseLayer", () => ({
   generateCoachReply: jest.fn(),
@@ -41,6 +45,7 @@ jest.mock("@/lib/db/settings.repository", () => ({
 
 const mockedUseAuth = useAuth as jest.Mock;
 const mockedBuildCoachDecision = buildCoachDecision as jest.Mock;
+const mockedBuildPlannerUserContext = buildPlannerUserContext as jest.Mock;
 const mockedGenerateCoachReply = generateCoachReply as jest.Mock;
 const mockedListMeals = mealsRepository.listForUserByDate as jest.Mock;
 const mockedListWater = waterLogsRepository.listForUserByDate as jest.Mock;
@@ -117,6 +122,20 @@ beforeEach(() => {
   mockedBuildCoachDecision
     .mockReset()
     .mockResolvedValue(makeDecision([proteinInsight, exerciseInsight, officeLunchInsight]));
+  mockedBuildPlannerUserContext.mockReset().mockResolvedValue({
+    today: "2026-07-25",
+    currentHour: 8,
+    currentMinute: 0,
+    leaveHomeTime: "06:30",
+    arriveHomeTime: "19:00",
+    lunchProvidedByOffice: false,
+    calorieGoal: 1400,
+    proteinGoalG: 110,
+    waterGoalMl: 2000,
+    workoutGoalMinPerDay: 30,
+    stepsGoal: 8000,
+    sleepGoalHours: 7,
+  });
   mockedGenerateCoachReply.mockReset();
   mockedListMeals.mockReset().mockResolvedValue([]);
   mockedListWater.mockReset().mockResolvedValue([]);
@@ -129,6 +148,7 @@ describe("AICoachCard — auto-loads the daily briefing on mount", () => {
   it("calls buildCoachDecision automatically without any click", async () => {
     render(<AICoachCard />);
     await waitFor(() => expect(mockedBuildCoachDecision).toHaveBeenCalledWith("user-1"));
+    expect(mockedBuildPlannerUserContext).toHaveBeenCalledWith("user-1");
   });
 
   it("shows a loading skeleton before the briefing is ready", () => {
@@ -143,6 +163,24 @@ describe("AICoachCard — auto-loads the daily briefing on mount", () => {
     await waitFor(() => expect(mockedBuildCoachDecision).toHaveBeenCalledTimes(1));
     rerender(<AICoachCard />);
     expect(mockedBuildCoachDecision).toHaveBeenCalledTimes(1);
+    expect(mockedBuildPlannerUserContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the complete deterministic daily and meal plan automatically", async () => {
+    render(<AICoachCard />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Today's plan" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Schedule" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Meals" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Planning tools" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1400 kcal")).toBeInTheDocument();
+    expect(
+      screen.getAllByLabelText(/kilocalories and \d+ grams protein$/),
+    ).toHaveLength(4);
   });
 });
 

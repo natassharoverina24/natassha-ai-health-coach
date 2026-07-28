@@ -8,10 +8,21 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { buildCoachDecision } from "@/lib/ai/contextBuilder";
+import { DailyPlanBriefing } from "@/components/dashboard/DailyPlanBriefing";
+import { PlanningToolsPanel } from "@/components/dashboard/PlanningToolsPanel";
+import {
+  buildCoachDecision,
+  buildPlannerUserContext,
+} from "@/lib/ai/contextBuilder";
 import { generateCoachReply, type CoachReply } from "@/lib/ai/responseLayer";
 import type { CoachDecision } from "@/lib/engines/decisionEngine";
-import type { EngineInsight } from "@/lib/engines/types";
+import {
+  generateDailyPlan,
+  generateMealPlan,
+  type DailyPlan,
+  type MealPlan,
+  type PlannerUserContext,
+} from "@/lib/planner";
 import { mealsRepository } from "@/lib/db/meals.repository";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { workoutsRepository } from "@/lib/db/workouts.repository";
@@ -28,6 +39,9 @@ type DecisionStatus = "loading" | "error" | "success";
 interface DecisionState {
   status: DecisionStatus;
   decision: CoachDecision | null;
+  dailyPlan: DailyPlan | null;
+  mealPlan: MealPlan | null;
+  plannerContext: PlannerUserContext | null;
   errorMessage: string | null;
 }
 
@@ -84,17 +98,6 @@ function coachGreeting(hour: number, firstName: string): string {
  * No priority, urgency, or tone is computed here — every value read below
  * was already decided by the engines and the Decision Engine.
  */
-function splitBriefing(insights: EngineInsight[]) {
-  const topInsight = insights[0] ?? null;
-  const winInsight = insights.find((insight) => insight.tone === "celebratory") ?? null;
-  const riskInsight = topInsight && topInsight.tone !== "celebratory" ? topInsight : null;
-
-  const spotlightedIds = new Set([riskInsight?.id, winInsight?.id].filter((id): id is string => Boolean(id)));
-  const actionInsights = insights.filter((insight) => !spotlightedIds.has(insight.id)).slice(0, 3);
-
-  return { riskInsight, winInsight, actionInsights };
-}
-
 /**
  * Dashboard AI Coach Card — Phase 5 polish.
  *
@@ -119,6 +122,9 @@ export function AICoachCard() {
   const [decisionState, setDecisionState] = useState<DecisionState>({
     status: "loading",
     decision: null,
+    dailyPlan: null,
+    mealPlan: null,
+    plannerContext: null,
     errorMessage: null,
   });
   const [scoreState, setScoreState] = useState<ScoreState>({ status: "loading", score: null });
@@ -128,14 +134,34 @@ export function AICoachCard() {
   const chatInFlightRef = useRef(false);
 
   const loadDecision = useCallback(async (userId: string) => {
-    setDecisionState({ status: "loading", decision: null, errorMessage: null });
+    setDecisionState({
+      status: "loading",
+      decision: null,
+      dailyPlan: null,
+      mealPlan: null,
+      plannerContext: null,
+      errorMessage: null,
+    });
     try {
-      const decision = await buildCoachDecision(userId);
-      setDecisionState({ status: "success", decision, errorMessage: null });
+      const [decision, plannerContext] = await Promise.all([
+        buildCoachDecision(userId),
+        buildPlannerUserContext(userId),
+      ]);
+      setDecisionState({
+        status: "success",
+        decision,
+        dailyPlan: generateDailyPlan(decision, plannerContext),
+        mealPlan: generateMealPlan(decision, plannerContext),
+        plannerContext,
+        errorMessage: null,
+      });
     } catch (err) {
       setDecisionState({
         status: "error",
         decision: null,
+        dailyPlan: null,
+        mealPlan: null,
+        plannerContext: null,
         errorMessage: err instanceof Error ? err.message : "Couldn't load today's briefing.",
       });
     }
@@ -202,7 +228,14 @@ export function AICoachCard() {
   const greeting = coachGreeting(new Date().getHours(), firstName);
 
   const insights = decisionState.decision?.insights ?? [];
-  const { riskInsight, winInsight, actionInsights } = splitBriefing(insights);
+  const riskInsight = decisionState.dailyPlan?.summary.biggestRisk ?? null;
+  const winInsight = decisionState.dailyPlan?.summary.todaysWin ?? null;
+  const spotlightedIds = new Set(
+    [riskInsight?.id, winInsight?.id].filter((id): id is string => Boolean(id)),
+  );
+  const actionInsights = insights
+    .filter((insight) => !spotlightedIds.has(insight.id))
+    .slice(0, 3);
 
   const statusLabel =
     decisionState.status === "loading"
@@ -298,6 +331,23 @@ export function AICoachCard() {
                 ))}
               </ul>
             </div>
+          )}
+
+          {decisionState.dailyPlan && decisionState.mealPlan && (
+            <>
+              <DailyPlanBriefing
+                dailyPlan={decisionState.dailyPlan}
+                mealPlan={decisionState.mealPlan}
+              />
+              {decisionState.decision && decisionState.plannerContext && (
+                <PlanningToolsPanel
+                  decision={decisionState.decision}
+                  context={decisionState.plannerContext}
+                  dailyPlan={decisionState.dailyPlan}
+                  mealPlan={decisionState.mealPlan}
+                />
+              )}
+            </>
           )}
 
           <div className="border-t border-ink/8 pt-4">
