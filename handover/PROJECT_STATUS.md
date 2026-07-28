@@ -1,74 +1,40 @@
 # PROJECT STATUS
 
-**Project:** Natassha AI Health Coach
-**Location:** `/home/claude/natassha-health/`
+**Project:** Natassha AI Health Coach  
 **Date:** July 2026
 
----
+## Implementation progress
 
-## Implementation Progress
-
-| Phase | Name | Status |
-|---|---|---|
-| 1 | Foundation | ✅ COMPLETE, FROZEN |
-| 2A | Meal Tracking | ✅ COMPLETE, FROZEN |
-| 2B | Meal History & Photos | ✅ COMPLETE, FROZEN |
-| 2C | Weekly Progress & Coach Dashboard | ✅ COMPLETE, FROZEN |
-| 3 | Adaptive AI Coach Core (10 engines) | ✅ COMPLETE, FROZEN |
-| 4A | AI Coach UI | ✅ COMPLETE, FROZEN |
-| 4B | Daily Coaching Experience | ✅ COMPLETE, FROZEN |
-| 5 | Personal Coach Polish | ✅ COMPLETE, FROZEN |
-| 6A | Daily Planner Core | ✅ COMPLETE, FROZEN |
-| 6B | Meal Planner | ✅ COMPLETE, FROZEN |
-| 6C | Office Lunch Optimizer | ⬜ NOT STARTED |
-| 6D | Energy Calculator only | ⬜ NOT STARTED |
-| 6E | Weekly Meal Prep | ⬜ NOT STARTED |
-| 6F | Emergency Planner | ⬜ NOT STARTED |
-| 6G | Adaptive Planner | ⬜ NOT STARTED |
-| 7 | Dashboard / UI Integration | ⬜ NOT STARTED |
-
-**Overall estimate:** ~60% complete. Core architecture, all engines, decision engine, AI pipeline, daily planner, and meal planner are done. Remaining work is the 5 specialized planners (6C–6G) plus UI integration (Phase 7).
-
----
-
-## Current Architecture Status
-
-- **Tech stack:** Next.js 16, TypeScript, Tailwind CSS v4, Firebase (Auth/Firestore/Storage/Messaging), React 19, PWA
-- **Source files:** 133
-- **Test files:** 52
-- **Firestore collections:** 17 (all typed, all with repositories)
-- **Deterministic engines:** 10 (all producing 31 unique insight IDs)
-- **AI providers:** 1 real (Claude), 3 stubs (GPT, Gemini, Local)
-- **Planner modules:** 2 implemented (Daily Planner, Meal Planner), 5 remaining
-- **Meal templates:** 18 approved templates with defined macros
-
----
-
-## Current Verification Status
-
-| Check | Status |
+| Phase | Status |
 |---|---|
-| ESLint | ✅ zero errors, zero warnings |
-| TypeScript (`tsc --noEmit`) | ✅ zero errors |
-| Jest | ✅ 394 tests, 52 suites, all passing |
-| Production build (`npm run build`) | ✅ succeeds, 13 pages prerender, 1 dynamic route (`/api/ai/coach`) |
+| 1–5 | Complete and frozen |
+| 6A–6G | Complete |
+| 7 UI Integration | Complete |
+| 8 Production Hardening | Implemented; manual deployment blockers remain |
 
----
+GoFood Planner remains cancelled and out of scope.
 
-## Known Limitations
+## Phase 8 verification
 
-- `MealPlan` and `DailyPlan` are independent outputs, not yet composed
-- Template library is small (18 templates) — sufficient for architecture validation, needs expansion for production
-- Office-lunch days still get a generic lunch template (Optimizer not yet built)
-- GoFood Planner is cancelled and out of scope; GoFood purchases use the existing meal logging flow with existing estimates, photos, and manual corrections
-- No `daily_plans` persistence collection
-- Steps target displayed but unscored (no step data source)
-- `splitBriefing()` in AICoachCard duplicates `extractSummary()` in plannerHelpers (pre-planner legacy)
-- No end-to-end LLM call verified (no ANTHROPIC_API_KEY in dev environment)
-- GPT/Gemini/Local providers are stubs
+| Check | Result |
+|---|---|
+| TypeScript | PASS |
+| ESLint | PASS |
+| Jest | 62/62 suites, 532/532 tests PASS |
+| Production compile | PASS |
+| Final local build worker | Blocked by local `spawn EPERM` |
+| Production dependency audit | 0 known vulnerabilities |
+| Full dependency audit | 0 known vulnerabilities |
+| Clean install | Blocked by managed offline npm cache (`ENOTCACHED`) |
 
----
+## Deployment blockers
 
-## Immediate Next Task
+1. Approve and emulator-test the Firestore ownership-update correction
+   documented in `docs/DEPLOYMENT_READINESS.md`.
+2. Configure the six required Firebase production/CI variables.
+3. Run `npm ci` and the complete CI workflow in a network-enabled runner.
+4. Complete the authenticated production smoke test.
+5. Supply an owner-approved production ingredient catalogue if Weekly Meal
+   Prep shopping output is required at launch.
 
-**Phase 6C: Office Lunch Optimizer** — a pure function in `src/lib/planner/officeLunchOptimizer.ts` that produces Eat/Reduce/Skip/Add recommendations for each of the 11 office-lunch categories, following the constraint priority ordering from `AI_PLANNING_SPEC.md` §3.3.
+No deployment has been performed.

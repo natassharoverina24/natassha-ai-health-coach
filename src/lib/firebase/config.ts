@@ -15,20 +15,30 @@ import {
   persistentMultipleTabManager,
 } from "firebase/firestore";
 import { type FirebaseStorage, getStorage } from "firebase/storage";
+import { resolveFirebaseEnvironment } from "@/lib/config/environment";
 
-const rawFirebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-};
-
-export const firebaseConfigIsPresent = Boolean(
-  rawFirebaseConfig.apiKey && rawFirebaseConfig.projectId,
+const resolvedFirebaseEnvironment = resolveFirebaseEnvironment(
+  {
+    NEXT_PUBLIC_FIREBASE_API_KEY:
+      process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:
+      process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID:
+      process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:
+      process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:
+      process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    NEXT_PUBLIC_FIREBASE_APP_ID:
+      process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID:
+      process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  },
+  process.env.NODE_ENV,
 );
+
+export const firebaseConfigIsPresent =
+  resolvedFirebaseEnvironment.status === "configured";
 
 /**
  * Firebase's SDKs (especially `getAuth`) validate the config shape eagerly
@@ -44,24 +54,21 @@ export const firebaseConfigIsPresent = Boolean(
  * runtime with a clear, actionable error — this only prevents a missing
  * `.env.local` from taking down the entire build.
  */
-const firebaseConfig = firebaseConfigIsPresent
-  ? rawFirebaseConfig
-  : {
-      apiKey: "demo-api-key-not-configured",
-      authDomain: "demo-project.firebaseapp.com",
-      projectId: "demo-project",
-      storageBucket: "demo-project.appspot.com",
-      messagingSenderId: "000000000000",
-      appId: "1:000000000000:web:0000000000000000000000",
-      measurementId: undefined,
-    };
+const firebaseConfig = resolvedFirebaseEnvironment.config;
 
 function warnIfMisconfigured() {
-  if (firebaseConfigIsPresent || process.env.NODE_ENV === "test") return;
+  if (
+    resolvedFirebaseEnvironment.status !== "development-placeholder" ||
+    process.env.NODE_ENV === "test"
+  ) {
+    return;
+  }
   console.warn(
-    "[firebase] No Firebase project configured — running with placeholder credentials. " +
+    "[firebase] Firebase configuration is incomplete — development is using placeholder credentials. " +
       "Copy .env.local.example to .env.local and fill in your Firebase project credentials " +
-      "before signing in or reading/writing any real data.",
+      "before signing in or reading/writing real data. Missing: " +
+      resolvedFirebaseEnvironment.missingVariables.join(", ") +
+      ".",
   );
 }
 

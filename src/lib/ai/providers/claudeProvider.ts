@@ -17,10 +17,17 @@ import type { AIProvider, AIProviderRequest, AIProviderResponse } from "./types"
 
 export interface ClaudeProviderOptions {
   apiRoute?: string;
+  getIdToken?: () => Promise<string | null>;
+}
+
+async function getDefaultIdToken(): Promise<string | null> {
+  const { getCurrentUserIdToken } = await import("@/lib/firebase/auth");
+  return getCurrentUserIdToken();
 }
 
 export function createClaudeProvider(options: ClaudeProviderOptions = {}): AIProvider {
   const apiRoute = options.apiRoute ?? "/api/ai/coach";
+  const getIdToken = options.getIdToken ?? getDefaultIdToken;
 
   return {
     name: "claude",
@@ -30,9 +37,16 @@ export function createClaudeProvider(options: ClaudeProviderOptions = {}): AIPro
     },
 
     async send(request: AIProviderRequest): Promise<AIProviderResponse> {
+      const idToken = await getIdToken();
+      if (!idToken) {
+        throw new Error("Sign in is required before contacting the AI coach.");
+      }
       const response = await fetch(apiRoute, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
         body: JSON.stringify(request),
       });
 

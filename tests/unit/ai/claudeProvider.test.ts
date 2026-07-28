@@ -2,6 +2,10 @@ import { createClaudeProvider } from "@/lib/ai/providers/claudeProvider";
 
 describe("createClaudeProvider", () => {
   const originalFetch = global.fetch;
+  const configuredProvider = () =>
+    createClaudeProvider({
+      getIdToken: async () => "firebase-id-token",
+    });
 
   afterEach(() => {
     global.fetch = originalFetch;
@@ -9,7 +13,7 @@ describe("createClaudeProvider", () => {
   });
 
   it("is named 'claude' and reports itself as configured", () => {
-    const provider = createClaudeProvider();
+    const provider = configuredProvider();
     expect(provider.name).toBe("claude");
     expect(provider.isConfigured()).toBe(true);
   });
@@ -20,7 +24,7 @@ describe("createClaudeProvider", () => {
       json: async () => ({ text: "Great job today!" }),
     }) as unknown as typeof fetch;
 
-    const provider = createClaudeProvider();
+    const provider = configuredProvider();
     const result = await provider.send({ system: "sys", messages: [{ role: "user", content: "hi" }] });
 
     expect(result).toEqual({ text: "Great job today!", providerName: "claude" });
@@ -28,7 +32,10 @@ describe("createClaudeProvider", () => {
       "/api/ai/coach",
       expect.objectContaining({
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer firebase-id-token",
+        },
       }),
     );
     const call = (global.fetch as jest.Mock).mock.calls[0];
@@ -40,7 +47,10 @@ describe("createClaudeProvider", () => {
 
   it("uses a custom API route when provided", async () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ text: "ok" }) }) as unknown as typeof fetch;
-    const provider = createClaudeProvider({ apiRoute: "/custom/route" });
+    const provider = createClaudeProvider({
+      apiRoute: "/custom/route",
+      getIdToken: async () => "firebase-id-token",
+    });
     await provider.send({ system: "sys", messages: [] });
     expect(global.fetch).toHaveBeenCalledWith("/custom/route", expect.anything());
   });
@@ -52,7 +62,7 @@ describe("createClaudeProvider", () => {
       json: async () => ({ error: "ANTHROPIC_API_KEY is not configured on the server." }),
     }) as unknown as typeof fetch;
 
-    const provider = createClaudeProvider();
+    const provider = configuredProvider();
     await expect(provider.send({ system: "sys", messages: [] })).rejects.toThrow(
       "ANTHROPIC_API_KEY is not configured on the server.",
     );
@@ -67,9 +77,22 @@ describe("createClaudeProvider", () => {
       },
     }) as unknown as typeof fetch;
 
-    const provider = createClaudeProvider();
+    const provider = configuredProvider();
     await expect(provider.send({ system: "sys", messages: [] })).rejects.toThrow(
       "Claude provider request failed (500)",
     );
+  });
+
+  it("fails before the request when there is no authenticated Firebase user", async () => {
+    global.fetch = jest.fn();
+    const provider = createClaudeProvider({ getIdToken: async () => null });
+
+    await expect(
+      provider.send({
+        system: "sys",
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    ).rejects.toThrow("Sign in is required");
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,11 @@
 # IMPLEMENTATION STATE
 
+> **Superseding July 2026 status:** Phases 1–7 are complete. Phase 8 adds
+> production environment validation, authenticated AI proxy transport, CI,
+> security headers, ignore rules, Firebase deployment metadata, focused tests,
+> and `docs/DEPLOYMENT_READINESS.md`. Older phase counts below are retained as
+> historical implementation notes and must not be used as current status.
+
 Every completed phase, with every file, function, type, design decision, and intentional omission.
 
 ---

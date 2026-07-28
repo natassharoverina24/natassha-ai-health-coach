@@ -25,6 +25,11 @@ service cloud.firestore {
       return isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
+    function ownsUpdatedDoc() {
+      return ownsExistingDoc()
+        && request.resource.data.userId == resource.data.userId;
+    }
+
     // users/{uid} — profile document, id === uid
     match /users/{userId} {
       allow read, write: if isOwner(userId);
@@ -32,63 +37,76 @@ service cloud.firestore {
 
     // settings/{uid} — settings document, id === uid
     match /settings/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId) && ownsIncomingDoc();
+      allow update: if isOwner(userId) && ownsUpdatedDoc();
     }
 
     // Collections keyed by an auto-generated id with a `userId` field.
     match /weights/{docId} {
-      allow read, update, delete: if ownsExistingDoc();
+      allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
     }
 
     match /waists/{docId} {
-      allow read, update, delete: if ownsExistingDoc();
+      allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
     }
 
     match /meals/{docId} {
-      allow read, update, delete: if ownsExistingDoc();
+      allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
     }
 
     match /meal_photos/{docId} {
-      allow read, update, delete: if ownsExistingDoc();
+      allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
     }
 
     match /supplements/{docId} {
-      allow read, update, delete: if ownsExistingDoc();
+      allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
     }
 
     match /supplement_logs/{docId} {
-      allow read, update, delete: if ownsExistingDoc();
+      allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
     }
 
     match /water_logs/{docId} {
-      allow read, update, delete: if ownsExistingDoc();
+      allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
     }
 
     match /workouts/{docId} {
-      allow read, update, delete: if ownsExistingDoc();
+      allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
     }
 
     match /sleep_logs/{docId} {
-      allow read, update, delete: if ownsExistingDoc();
+      allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
     }
 
     match /motivations/{docId} {
-      allow read, update, delete: if ownsExistingDoc();
+      allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
     }
 
     match /shopping/{docId} {
-      allow read, update, delete: if ownsExistingDoc();
+      allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
     }
 
     match /reports/{docId} {
@@ -99,8 +117,9 @@ service cloud.firestore {
     }
 
     match /cycles/{docId} {
-      allow read, update, delete: if ownsExistingDoc();
+      allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
     }
 
     match /ai_logs/{docId} {

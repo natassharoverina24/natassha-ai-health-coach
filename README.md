@@ -1,10 +1,8 @@
 # Natassha AI Health Coach
 
-A daily companion for weight, meals, supplements, and progress — built as a
-real Progressive Web App, not a demo. This is **Phase 1**: the production
-foundation (architecture, auth, database, dashboard, navigation, reusable
-components). The AI Coach itself is deliberately not implemented yet — see
-[`ARCHITECTURE.md`](./ARCHITECTURE.md) for where it plugs in.
+A daily companion for weight, meals, supplements, deterministic coaching, and
+planning. Phases 1–7 are implemented; Phase 8 adds production validation, CI,
+API hardening, and deployment-readiness documentation.
 
 ## Tech stack
 
@@ -136,10 +134,10 @@ npm run build
 npm start
 ```
 
-The build succeeds even without `.env.local` configured (it falls back to
-placeholder Firebase credentials so CI/preview builds never crash — see the
-comment in `src/lib/firebase/config.ts`), but sign-in and data access will
-only work once real credentials are set.
+Production builds require all six mandatory Firebase Web SDK variables and
+fail with their exact missing names when configuration is incomplete.
+Development and tests retain a non-functional placeholder and do not require
+real Firebase credentials.
 
 ## 9. Deployment
 
@@ -149,15 +147,19 @@ This app is a standard Next.js app and isn't locked to one host:
   `NEXT_PUBLIC_FIREBASE_*` env vars in the project settings, deploy.
 - **Firebase App Hosting**: `firebase init apphosting` and follow the
   prompts — it understands Next.js's server runtime natively.
-- **Firebase Hosting (static export)**: if you don't need any server-side
-  Next.js features, add `output: "export"` to `next.config.ts`, run
-  `npm run build`, then `firebase deploy --only hosting`. `firebase.json`
-  in this repo already points hosting at the `out/` directory.
+
+Static export is not supported because `/api/ai/coach` requires a server
+runtime.
 
 Whichever host you choose, remember to also run
 `firebase deploy --only firestore:rules,firestore:indexes,storage:rules`
 whenever you change `firestore.rules`, `firestore.indexes.json`, or
 `storage.rules` — those don't ship with the app deploy.
+
+Before deployment, follow
+[`docs/DEPLOYMENT_READINESS.md`](./docs/DEPLOYMENT_READINESS.md). It records
+the environment contract, CI expectations, authenticated smoke test, rollback
+steps, and unresolved security-rules blocker.
 
 ## Project scope (Phase 1)
 

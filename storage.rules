@@ -7,8 +7,21 @@ rules_version = '2';
  */
 service firebase.storage {
   match /b/{bucket}/o {
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/meal_photos/{fileName} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Exported reports are not image uploads and retain owner-only access
+    // without meal-photo content-type restrictions.
+    match /users/{userId}/reports/{fileName} {
+      allow read, write: if isOwner(userId);
     }
 
     // Deny everything else by default.

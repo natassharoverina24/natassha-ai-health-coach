@@ -43,7 +43,9 @@ Decision Engine is the single source of truth.
 
 ## Current Status
 
-The project is complete and verified through Phase 6C.
+Phases 1–7 are implemented. Phase 8 production hardening is implemented in
+the current working copy, with deployment intentionally blocked pending the
+manual prerequisites in `docs/DEPLOYMENT_READINESS.md`.
 
 ## Completed Phases
 
@@ -87,9 +89,13 @@ Verification:
 - Tests: 414/414 PASS
 - Production build: PASS
 
-## Phase 6D
+## Phases 6D–7
 
-Phase 6D contains the Energy Calculator only and is not yet implemented.
+- Phase 6D: Energy Calculator implemented.
+- Phase 6E: Weekly Meal Prep implemented with injected approved ingredients.
+- Phase 6F: Emergency Planner implemented.
+- Phase 6G: Adaptive Adjustments implemented.
+- Phase 7: Dashboard UI integration implemented.
 
 The GoFood Planner is cancelled and out of scope. Meals purchased through
 GoFood use the existing meal logging flow with existing estimates, photos,
@@ -98,12 +104,12 @@ and do not implement GoFood-specific code.
 
 ## Remaining Roadmap
 
-1. Phase 6D — Energy Calculator
-2. Phase 6E — Weekly Meal Prep
-3. Phase 6F — Emergency Planner
-4. Phase 6G — Adaptive Planner
-5. Phase 7 — UI Integration
-6. Phase 8 — Production Hardening
+Phase 8 manual readiness work only:
+
+1. Approve and test the documented Firestore ownership-rule correction.
+2. Configure production and CI Firebase values.
+3. Obtain a green CI run for the exact release commit.
+4. Complete the authenticated smoke-test checklist.
 
 ## Frozen Documents
 
@@ -160,5 +166,5 @@ Always check:
 
 ## Current Objective
 
-Plan Phase 6D Energy Calculator. Do not rewrite completed modules. Keep
-prompts token efficient.
+Resolve the explicit deployment blockers without changing completed coaching
+or planning behavior.

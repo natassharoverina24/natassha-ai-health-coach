@@ -9,6 +9,7 @@
 import {
   type User,
   GoogleAuthProvider,
+  getIdToken,
   onAuthStateChanged as firebaseOnAuthStateChanged,
   signInWithPopup,
   signInWithRedirect,
@@ -52,6 +53,11 @@ export function onAuthStateChanged(
 
 export function getCurrentUser(): User | null {
   return auth.currentUser;
+}
+
+export async function getCurrentUserIdToken(): Promise<string | null> {
+  const user = getCurrentUser();
+  return user ? getIdToken(user) : null;
 }
 
 export { auth };
