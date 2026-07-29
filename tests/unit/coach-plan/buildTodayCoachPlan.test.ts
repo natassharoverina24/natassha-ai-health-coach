@@ -1,0 +1,254 @@
+import {
+  buildCoachDecision,
+  buildPlannerUserContext,
+} from "@/lib/ai/contextBuilder";
+import {
+  buildTodayCoachPlan,
+  type TodayCoachPlanOptions,
+} from "@/lib/coach-plan";
+import type { CoachDecision } from "@/lib/engines/decisionEngine";
+import type { EngineInsight } from "@/lib/engines/types";
+import {
+  generateDailyPlan,
+  generateMealPlan,
+  MEAL_TEMPLATES,
+  type ApprovedIngredientCatalogue,
+  type PlannerUserContext,
+} from "@/lib/planner";
+
+jest.mock("@/lib/ai/contextBuilder", () => ({
+  buildCoachDecision: jest.fn(),
+  buildPlannerUserContext: jest.fn(),
+}));
+
+const proteinInsight: EngineInsight = {
+  id: "nutrition.protein_first",
+  engine: "nutrition",
+  priority: "high",
+  urgency: "soon",
+  tone: "encouraging",
+  summary: "Protein is below the retained target.",
+  reason: "The logged protein total is below the retained target.",
+  recommendedAction: "Use the retained protein-first action.",
+};
+
+const hydrationInsight: EngineInsight = {
+  id: "adaptive.low_hydration_pattern",
+  engine: "adaptiveLearning",
+  priority: "medium",
+  urgency: "soon",
+  tone: "neutral",
+  summary: "A retained hydration pattern is active.",
+  reason: "The Decision Engine retained the hydration pattern.",
+  recommendedAction: "Use the retained reminder adjustment.",
+};
+
+const decision: CoachDecision = {
+  insights: [proteinInsight, hydrationInsight],
+  suppressedEngineNames: [],
+  generatedAt: "2026-07-29T08:00:00.000Z",
+};
+
+const context: PlannerUserContext = {
+  today: "2026-07-29",
+  currentHour: 8,
+  currentMinute: 0,
+  leaveHomeTime: "06:30",
+  arriveHomeTime: "19:00",
+  lunchProvidedByOffice: true,
+  calorieGoal: 1400,
+  proteinGoalG: 110,
+  waterGoalMl: 2000,
+  workoutGoalMinPerDay: 30,
+  stepsGoal: 8000,
+  sleepGoalHours: 7,
+};
+
+const syntheticIngredientCatalogue: ApprovedIngredientCatalogue =
+  Object.fromEntries(
+    MEAL_TEMPLATES.map((template, catalogueOrder) => [
+      template.id,
+      [
+        {
+          id: `synthetic-${template.id}`,
+          label: `Synthetic approved fixture for ${template.id}`,
+          category: "staples" as const,
+          quantity: 1,
+          unit: "fixture-unit",
+          catalogueOrder,
+        },
+      ],
+    ]),
+  );
+
+const completeOptions: TodayCoachPlanOptions = {
+  remainingNutritionBudget: { calories: 700, proteinG: 55 },
+  officeLunchByDate: { "2026-07-29": true },
+  ingredientCatalogue: syntheticIngredientCatalogue,
+  emergencyDisruption: {
+    type: "missed-breakfast",
+    occurredAt: "09:00",
+  },
+};
+
+beforeEach(() => {
+  (buildCoachDecision as jest.Mock).mockReset().mockResolvedValue(decision);
+  (buildPlannerUserContext as jest.Mock).mockReset().mockResolvedValue(context);
+});
+
+describe("buildTodayCoachPlan", () => {
+  it("returns the complete traceable TodayCoachPlan structure", async () => {
+    const result = await buildTodayCoachPlan("user-1", completeOptions);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        generatedAt: decision.generatedAt,
+        date: context.today,
+        status: "ready",
+        greeting: expect.objectContaining({ sourceIds: expect.any(Array) }),
+        briefing: expect.objectContaining({ sourceIds: expect.any(Array) }),
+        focus: expect.objectContaining({ sourceIds: [proteinInsight.id] }),
+        biggestRisk: expect.anything(),
+        todaysWin: null,
+        timeline: expect.any(Array),
+        meals: expect.any(Object),
+        metrics: expect.objectContaining({ sourceIds: expect.any(Array) }),
+        officeLunch: expect.objectContaining({ sourceIds: expect.any(Array) }),
+        emergencyAdjustment: expect.objectContaining({
+          sourceIds: expect.any(Array),
+        }),
+        adaptiveAdjustments: expect.objectContaining({
+          sourceIds: expect.arrayContaining([hydrationInsight.id]),
+        }),
+        weeklyContext: expect.objectContaining({
+          sourceIds: expect.any(Array),
+        }),
+        dataAvailability: {
+          decision: "available",
+          dailyPlan: "available",
+          mealPlan: "available",
+          officeLunch: "available",
+          emergencyAdjustment: "available",
+          adaptiveAdjustments: "available",
+          weeklyContext: "available",
+        },
+        warnings: [],
+      }),
+    );
+    expect(result.timeline).toHaveLength(6);
+    expect(Object.keys(result.meals)).toEqual([
+      "breakfast",
+      "lunch",
+      "snack",
+      "dinner",
+    ]);
+  });
+
+  it("is deterministic for the same decision, context, options, and time", async () => {
+    const first = await buildTodayCoachPlan("user-1", completeOptions);
+    const second = await buildTodayCoachPlan("user-1", completeOptions);
+
+    expect(second).toEqual(first);
+  });
+
+  it("uses the existing daily timeline and meal planner outputs unchanged", async () => {
+    const result = await buildTodayCoachPlan("user-1");
+    const expectedDaily = generateDailyPlan(decision, context);
+    const expectedMeals = generateMealPlan(decision, context);
+
+    expect(
+      result.timeline.map(({ kind, label, time }) => ({ kind, label, time })),
+    ).toEqual(
+      Object.entries(expectedDaily.schedule).map(([kind, slot]) => ({
+        kind,
+        ...slot,
+      })),
+    );
+    for (const slot of ["breakfast", "lunch", "snack", "dinner"] as const) {
+      expect({
+        slot: result.meals[slot].slot,
+        template: result.meals[slot].template,
+        reason: result.meals[slot].reason,
+      }).toEqual(expectedMeals[slot]);
+      expect(result.meals[slot].sourceIds).toContain(proteinInsight.id);
+    }
+    expect(result.metrics.value).toEqual(expectedDaily.targets);
+  });
+
+  it("uses null and structured availability when optional planner inputs are absent", async () => {
+    const result = await buildTodayCoachPlan("user-1");
+
+    expect(result.officeLunch).toBeNull();
+    expect(result.weeklyContext).toBeNull();
+    expect(result.emergencyAdjustment).toBeNull();
+    expect(result.dataAvailability).toEqual(
+      expect.objectContaining({
+        officeLunch: "unavailable",
+        weeklyContext: "unavailable",
+        emergencyAdjustment: "unavailable",
+      }),
+    );
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "office-lunch-budget-unavailable",
+          message: expect.any(String),
+          sourceIds: ["planner.office-lunch"],
+        }),
+        expect.objectContaining({
+          code: "weekly-planning-input-unavailable",
+          message: expect.any(String),
+          sourceIds: ["planner.weekly-meal-prep"],
+        }),
+        expect.objectContaining({
+          code: "emergency-disruption-unavailable",
+          message: expect.any(String),
+          sourceIds: ["planner.emergency"],
+        }),
+      ]),
+    );
+    expect(result.status).toBe("partial");
+    expect(result.timeline).toHaveLength(6);
+    expect(Object.keys(result.meals)).toHaveLength(4);
+    expect(result.warnings.every((warning) => warning.message.length > 0)).toBe(
+      true,
+    );
+  });
+
+  it("keeps the core plan when optional office-lunch input is invalid", async () => {
+    const result = await buildTodayCoachPlan("user-1", {
+      remainingNutritionBudget: {
+        calories: Number.NaN,
+        proteinG: 55,
+      },
+    });
+
+    expect(result.status).toBe("partial");
+    expect(result.officeLunch).toBeNull();
+    expect(result.dataAvailability.officeLunch).toBe("invalid-input");
+    expect(result.timeline).toHaveLength(6);
+    expect(Object.keys(result.meals)).toHaveLength(4);
+    expect(result.warnings).toContainEqual(
+      expect.objectContaining({
+        code: "office-lunch-invalid-input",
+        sourceIds: ["planner.office-lunch"],
+      }),
+    );
+  });
+
+  it("does not fabricate decisions, meal nutrition, or medical content", async () => {
+    const result = await buildTodayCoachPlan("user-1");
+    const approvedTemplates = new Map(
+      MEAL_TEMPLATES.map((template) => [template.id, template]),
+    );
+
+    expect(result.briefing.retainedInsights).toEqual(decision.insights);
+    expect(result.focus?.value.id).toBe(proteinInsight.id);
+    for (const meal of Object.values(result.meals)) {
+      expect(meal.template).toEqual(approvedTemplates.get(meal.template.id));
+    }
+    expect(JSON.stringify(result)).not.toMatch(
+      /diagnos|medical advice|thyroid diet|thyroid restriction|supplement|medication|gofood/i,
+    );
+  });
+});
