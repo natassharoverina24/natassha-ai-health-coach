@@ -2,8 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/Button";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { useAuth } from "@/contexts/AuthContext";
-import { buildCoachDecision, buildPlannerUserContext } from "@/lib/ai/contextBuilder";
+import {
+  buildCoachDecision,
+  buildPlannerUserContext,
+} from "@/lib/ai/contextBuilder";
 import type { CoachDecision } from "@/lib/engines/decisionEngine";
 import {
   generateDailyPlan,
@@ -12,9 +18,7 @@ import {
   type MealPlan,
   type PlannerUserContext,
 } from "@/lib/planner";
-import { Button } from "@/components/ui/Button";
-import { GlassCard } from "@/components/ui/GlassCard";
-import { Skeleton } from "@/components/ui/Skeleton";
+
 import { DailyPlanBriefing } from "./DailyPlanBriefing";
 import { PlanningToolsPanel } from "./PlanningToolsPanel";
 
@@ -33,17 +37,20 @@ export function PlannerWorkspace() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const requestedUid = useRef<string | null>(null);
+
   const [state, setState] = useState<PlannerWorkspaceState>({
     status: "loading",
   });
 
   const load = useCallback(async (userId: string) => {
     setState({ status: "loading" });
+
     try {
       const [decision, context] = await Promise.all([
         buildCoachDecision(userId),
         buildPlannerUserContext(userId),
       ]);
+
       setState({
         status: "success",
         decision,
@@ -51,13 +58,17 @@ export function PlannerWorkspace() {
         dailyPlan: generateDailyPlan(decision, context),
         mealPlan: generateMealPlan(decision, context),
       });
-    } catch {
+    } catch (error) {
+      console.error("PlannerWorkspace load failed:", error);
       setState({ status: "error" });
     }
   }, []);
 
   useEffect(() => {
-    if (!uid || requestedUid.current === uid) return;
+    if (!uid || requestedUid.current === uid) {
+      return;
+    }
+
     requestedUid.current = uid;
     void load(uid);
   }, [load, uid]);
@@ -74,7 +85,11 @@ export function PlannerWorkspace() {
 
   if (state.status === "loading") {
     return (
-      <div role="status" aria-label="Loading planner" className="flex flex-col gap-4">
+      <div
+        role="status"
+        aria-label="Loading planner"
+        className="flex flex-col gap-4"
+      >
         <Skeleton className="h-64 w-full rounded-card" />
         <Skeleton className="h-64 w-full rounded-card" />
       </div>
@@ -85,13 +100,18 @@ export function PlannerWorkspace() {
     return (
       <GlassCard>
         <section aria-labelledby="planner-unavailable-heading">
-          <h2 id="planner-unavailable-heading" className="text-base font-semibold text-ink">
+          <h2
+            id="planner-unavailable-heading"
+            className="text-base font-semibold text-ink"
+          >
             Planner data unavailable
           </h2>
+
           <p role="alert" className="mt-2 text-sm text-ink-muted">
             Required profile or planning context could not be loaded. No plan
             was invented.
           </p>
+
           <Button
             type="button"
             variant="outline"
@@ -113,6 +133,7 @@ export function PlannerWorkspace() {
           mealPlan={state.mealPlan}
         />
       </GlassCard>
+
       <GlassCard>
         <PlanningToolsPanel
           decision={state.decision}
