@@ -87,6 +87,10 @@ describe("MealPhotoSection", () => {
     );
     const file = new File(["image"], "meal.jpg", { type: "image/jpeg" });
     await userEvent.upload(screen.getByLabelText("Choose a meal image"), file);
+    expect(onConfirm).not.toHaveBeenCalled();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Analyse Photo" }),
+    );
 
     expect(
       await screen.findByText(/low confidence.*uncertain/i),
@@ -120,6 +124,9 @@ describe("MealPhotoSection", () => {
         estimatedAt: analysis.estimatedAt,
       }),
     );
+    expect(
+      screen.getByText(/confirmed estimates saved.*image was not stored/i),
+    ).toBeInTheDocument();
   });
 
   it("revokes temporary object URLs when replaced and on unmount", async () => {
@@ -135,10 +142,16 @@ describe("MealPhotoSection", () => {
       input,
       new File(["one"], "one.jpg", { type: "image/jpeg" }),
     );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Analyse Photo" }),
+    );
     await screen.findByText(/low confidence/i);
     await userEvent.upload(
       input,
       new File(["two"], "two.png", { type: "image/png" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Analyse Photo" }),
     );
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:local-preview");
 
@@ -159,6 +172,9 @@ describe("MealPhotoSection", () => {
     await userEvent.upload(
       screen.getByLabelText("Choose a meal image"),
       new File(["private-image-bytes"], "meal.webp", { type: "image/webp" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Analyse Photo" }),
     );
     expect(
       await screen.findByText("Meal-photo analysis provider failed."),

@@ -310,7 +310,7 @@ describe("generateEmergencyPlan", () => {
     );
   });
 
-  it("never emits meal-skipping, compensation, invented targets, medical content, or GoFood behavior", () => {
+  it("never emits meal-skipping, compensation, invented targets, or medical content", () => {
     const disruptions: EmergencyDisruption[] = [
       { type: "missed-breakfast", occurredAt: "09:00" },
       { type: "late-dinner", expectedDinnerAt: "22:00" },
@@ -327,7 +327,7 @@ describe("generateEmergencyPlan", () => {
         generateEmergencyPlan(decision(), context(), disruption),
       );
       expect(output).not.toMatch(
-        /skip|save calories|calorie target|protein target|double portion|gofood|diagnos|treat|supplement|medication/i,
+        /skip|save calories|calorie target|protein target|double portion|diagnos|treat|supplement|medication/i,
       );
     }
   });
@@ -361,7 +361,7 @@ describe("generateEmergencyPlan", () => {
       generateEmergencyPlan(
         decision(),
         context(),
-        { type: "gofood" } as unknown as EmergencyDisruption,
+        { type: "unsupported" } as unknown as EmergencyDisruption,
       ),
     ).toEqual({
       status: "not-applicable",

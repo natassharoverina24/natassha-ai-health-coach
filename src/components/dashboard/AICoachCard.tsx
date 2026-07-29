@@ -8,8 +8,6 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { DailyPlanBriefing } from "@/components/dashboard/DailyPlanBriefing";
-import { PlanningToolsPanel } from "@/components/dashboard/PlanningToolsPanel";
 import {
   buildCoachDecision,
   buildPlannerUserContext,
@@ -155,14 +153,14 @@ export function AICoachCard() {
         plannerContext,
         errorMessage: null,
       });
-    } catch (err) {
+    } catch {
       setDecisionState({
         status: "error",
         decision: null,
         dailyPlan: null,
         mealPlan: null,
         plannerContext: null,
-        errorMessage: err instanceof Error ? err.message : "Couldn't load today's briefing.",
+        errorMessage: "Today's briefing is temporarily unavailable.",
       });
     }
   }, []);
@@ -331,23 +329,6 @@ export function AICoachCard() {
                 ))}
               </ul>
             </div>
-          )}
-
-          {decisionState.dailyPlan && decisionState.mealPlan && (
-            <>
-              <DailyPlanBriefing
-                dailyPlan={decisionState.dailyPlan}
-                mealPlan={decisionState.mealPlan}
-              />
-              {decisionState.decision && decisionState.plannerContext && (
-                <PlanningToolsPanel
-                  decision={decisionState.decision}
-                  context={decisionState.plannerContext}
-                  dailyPlan={decisionState.dailyPlan}
-                  mealPlan={decisionState.mealPlan}
-                />
-              )}
-            </>
           )}
 
           <div className="border-t border-ink/8 pt-4">

@@ -18,6 +18,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { GlassCard } from "@/components/ui/GlassCard";
 import {
   MealEntryForm,
   type MealFormValues,
@@ -28,6 +29,7 @@ import {
 import {
   DailyNutritionSummary,
   MealDetailModal,
+  MealPhotoSection,
   MealTypeSection,
   QuickLogFab,
   WaterTrackerCard,
@@ -72,6 +74,7 @@ export default function MealPage() {
   const [addModal, setAddModal] = useState<AddModalState>(null);
   const [editingMeal, setEditingMeal] = useState<MealEntry | null>(null);
   const [viewingMeal, setViewingMeal] = useState<MealEntry | null>(null);
+  const [analysisMealId, setAnalysisMealId] = useState("");
   const [officeLunchModalOpen, setOfficeLunchModalOpen] = useState(false);
   const [addingWaterAmount, setAddingWaterAmount] = useState<number | null>(null);
 
@@ -180,16 +183,23 @@ export default function MealPage() {
     estimate: ConfirmedMealPhotoEstimate,
   ) => {
     if (!viewingMeal) return;
+    await persistConfirmedPhotoEstimate(viewingMeal, estimate);
+  };
+
+  const persistConfirmedPhotoEstimate = async (
+    meal: MealEntry,
+    estimate: ConfirmedMealPhotoEstimate,
+  ) => {
     const confirmedUpdate = buildConfirmedMealUpdate(
-      viewingMeal.macros,
+      meal.macros,
       estimate,
     );
     const updatedMeal: MealEntry = {
-      ...viewingMeal,
+      ...meal,
       ...confirmedUpdate,
     };
-    await mealsRepository.update(viewingMeal.id, confirmedUpdate);
-    setViewingMeal(updatedMeal);
+    await mealsRepository.update(meal.id, confirmedUpdate);
+    if (viewingMeal?.id === meal.id) setViewingMeal(updatedMeal);
   };
 
   // ---- Water ---------------------------------------------------------------
@@ -235,6 +245,8 @@ export default function MealPage() {
     type,
     items: meals.filter((m) => m.type === type),
   }));
+  const analysisMeal =
+    meals.find((meal) => meal.id === analysisMealId) ?? null;
 
   const loading = mealsLoading || (isToday && waterLoading);
 
@@ -261,7 +273,75 @@ export default function MealPage() {
             Back to today
           </Button>
         )}
+        <a
+          href="#meal-photo-analysis"
+          className="inline-flex h-10 items-center rounded-control bg-rose px-4 text-sm font-semibold text-white"
+        >
+          Analyse meal photo
+        </a>
       </div>
+
+      <GlassCard
+        id="meal-photo-analysis"
+        className="scroll-mt-6"
+      >
+        <div className="flex flex-col gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-ink">
+              Gemini meal-photo analysis
+            </h2>
+            <p className="text-sm text-ink-muted">
+              Select a logged meal, analyse a temporary image, then confirm
+              corrected estimates before anything is saved.
+            </p>
+          </div>
+          {mealsLoading ? (
+            <p role="status" className="text-sm text-ink-muted">
+              Loading logged meals…
+            </p>
+          ) : meals.length === 0 ? (
+            <p role="status" className="rounded-control bg-teal-soft px-3 py-2 text-sm text-ink">
+              Log a meal first, then return here to analyse its photo.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="photo-analysis-meal"
+                  className="text-sm font-medium text-ink"
+                >
+                  Meal to update
+                </label>
+                <select
+                  id="photo-analysis-meal"
+                  value={analysisMealId}
+                  onChange={(event) => setAnalysisMealId(event.target.value)}
+                  className="h-12 w-full rounded-control border border-ink/10 bg-bg-elevated px-4 text-sm text-ink"
+                >
+                  <option value="">Choose a logged meal</option>
+                  {meals.map((meal) => (
+                    <option key={meal.id} value={meal.id}>
+                      {TYPE_LABEL[meal.type]} — {meal.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {analysisMeal ? (
+                <MealPhotoSection
+                  onAnalyzeFile={handleAnalyzePhoto}
+                  onConfirm={(estimate) =>
+                    persistConfirmedPhotoEstimate(analysisMeal, estimate)
+                  }
+                />
+              ) : (
+                <p role="status" className="text-sm text-ink-muted">
+                  Choose a meal to reveal camera and image controls.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </GlassCard>
 
       {loading ? (
         <MealPageSkeleton />

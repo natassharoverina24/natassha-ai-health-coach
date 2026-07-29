@@ -8,12 +8,12 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest --testPathIgnorePatterns=tests/firebase",
+    "test:rules": "firebase emulators:exec --only auth,firestore,storage --project demo-natassha-health-coach \"jest tests/firebase --runInBand\"",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "emulator:start": "firebase emulators:start --project demo-natassha-health-coach --only auth,firestore,storage",
     "emulator:rules": "firebase emulators:start --project demo-natassha-health-coach --only auth,firestore,storage",
-    "generate:icons": "python3 scripts/generate-icons.py",
-    "test:rules": "firebase emulators:exec --only auth,firestore,storage --project demo-natassha-health-coach \"jest tests/firebase --runInBand\""
+    "generate:icons": "python3 scripts/generate-icons.py"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -21,7 +21,7 @@
     "date-fns": "^4.4.0",
     "firebase": "^12.16.0",
     "lucide-react": "^1.26.0",
-    "next": "16.2.11",
+    "next": "^16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.10.0",
@@ -29,6 +29,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
@@ -39,10 +40,12 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
+    "firebase-tools": "15.24.0",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
-    "typescript": "^5"
+    "typescript": "^5",
+    "undici": "6.21.3"
   }
 }

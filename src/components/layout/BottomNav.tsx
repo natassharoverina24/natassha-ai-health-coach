@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Scale, TrendingUp, UtensilsCrossed, MoreHorizontal } from "lucide-react";
+import { CalendarDays, LayoutDashboard, TrendingUp, UtensilsCrossed, MoreHorizontal } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
 
 const PRIMARY = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-  { href: "/weight", label: "Weight", icon: Scale },
   { href: "/meal", label: "Meal", icon: UtensilsCrossed },
+  { href: "/planner", label: "Planner", icon: CalendarDays },
   { href: "/progress", label: "Progress", icon: TrendingUp },
   { href: "/settings", label: "More", icon: MoreHorizontal },
 ];
@@ -32,7 +32,7 @@ export function BottomNav() {
             key={item.href}
             href={item.href}
             className={cn(
-              "flex flex-col items-center gap-0.5 rounded-pill px-3 py-1.5 text-[11px] font-medium transition-colors",
+              "flex min-w-0 flex-col items-center gap-0.5 rounded-pill px-2 py-1.5 text-[11px] font-medium transition-colors",
               active ? "text-rose-strong" : "text-ink-muted",
             )}
             aria-current={active ? "page" : undefined}

@@ -24,6 +24,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { HealthRingsCard } from "@/components/dashboard/HealthRingsCard";
 import { WeeklyProgressCard } from "@/components/dashboard/WeeklyProgressCard";
 import { AICoachCard } from "@/components/dashboard/AICoachCard";
+import { PlannerNavigationCard } from "@/components/dashboard/PlannerNavigationCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDateLabel } from "@/lib/utils/format";
 import type {
@@ -108,6 +109,7 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <AICoachCard />
+      <PlannerNavigationCard />
 
       {isLoading ? (
         <DashboardSkeleton />

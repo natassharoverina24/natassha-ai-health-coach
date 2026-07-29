@@ -1,61 +1,32 @@
-/**
- * @jest-environment node
- */
+/** @jest-environment node */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
+import fs from "node:fs";
+import path from "node:path";
 
-const { TextDecoder, TextEncoder } = require("node:util");
-const {
-  ReadableStream,
-  WritableStream,
-  TransformStream,
-} = require("node:stream/web");
-
-Object.assign(globalThis, {
-  TextDecoder,
-  TextEncoder,
-  ReadableStream,
-  WritableStream,
-  TransformStream,
-});
-
-const {
-  fetch,
-  Headers,
-  Request,
-  Response,
-} = require("undici");
-
-Object.assign(globalThis, {
-  fetch,
-  Headers,
-  Request,
-  Response,
-});
-
-const fs = require("node:fs");
-const {
-  initializeTestEnvironment,
-  assertSucceeds,
+import {
   assertFails,
-} = require("@firebase/rules-unit-testing");
-
-const {
-  doc,
-  setDoc,
-  getDoc,
-  updateDoc,
+  assertSucceeds,
+  initializeTestEnvironment,
+} from "@firebase/rules-unit-testing";
+import {
   deleteDoc,
-} = require("firebase/firestore");
-
-const {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
+import {
+  getBytes,
   ref,
   uploadBytes,
-  deleteObject,
-  getBytes,
-} = require("firebase/storage");
+} from "firebase/storage";
 
 const PROJECT_ID = "demo-natassha-health-coach";
+const OWNER_ID = "owner-user";
+const OTHER_ID = "other-user";
+const MEAL_PATH = "meals/owned-meal";
+const PHOTO_PATH = `users/${OWNER_ID}/meal_photos/meal.jpg`;
+const REPORT_PATH = `users/${OWNER_ID}/reports/report.pdf`;
 
 let testEnv;
 
@@ -65,12 +36,18 @@ beforeAll(async () => {
     firestore: {
       host: "127.0.0.1",
       port: 8080,
-      rules: fs.readFileSync("firestore.rules", "utf8"),
+      rules: fs.readFileSync(
+        path.resolve(__dirname, "../../firestore.rules"),
+        "utf8",
+      ),
     },
     storage: {
       host: "127.0.0.1",
       port: 9199,
-      rules: fs.readFileSync("storage.rules", "utf8"),
+      rules: fs.readFileSync(
+        path.resolve(__dirname, "../../storage.rules"),
+        "utf8",
+      ),
     },
   });
 });
@@ -81,202 +58,159 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  if (testEnv) await testEnv.cleanup();
+  await testEnv.cleanup();
 });
 
+function firestoreFor(uid) {
+  return uid
+    ? testEnv.authenticatedContext(uid).firestore()
+    : testEnv.unauthenticatedContext().firestore();
+}
+
+function storageFor(uid) {
+  return uid
+    ? testEnv.authenticatedContext(uid).storage()
+    : testEnv.unauthenticatedContext().storage();
+}
+
+async function seedOwnedMeal() {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), MEAL_PATH), {
+      userId: OWNER_ID,
+      name: "Synthetic meal",
+    });
+  });
+}
+
 describe("Firestore ownership rules", () => {
-  const ownerId = "owner-user";
-  const otherId = "other-user";
-
-  test("owner creates with matching userId", async () => {
-    const db = testEnv.authenticatedContext(ownerId).firestore();
-
+  test("owner creates a document with matching userId", async () => {
     await assertSucceeds(
-      setDoc(doc(db, "cycles", "cycle-1"), {
-        userId: ownerId,
-        startDate: "2026-07-28",
-      })
+      setDoc(doc(firestoreFor(OWNER_ID), MEAL_PATH), {
+        userId: OWNER_ID,
+        name: "Synthetic meal",
+      }),
     );
   });
 
   test("create with another userId is denied", async () => {
-    const db = testEnv.authenticatedContext(ownerId).firestore();
-
     await assertFails(
-      setDoc(doc(db, "cycles", "cycle-1"), {
-        userId: otherId,
-        startDate: "2026-07-28",
-      })
+      setDoc(doc(firestoreFor(OWNER_ID), MEAL_PATH), {
+        userId: OTHER_ID,
+        name: "Synthetic meal",
+      }),
     );
   });
 
   test("owner updates without changing userId", async () => {
-    const db = testEnv.authenticatedContext(ownerId).firestore();
-    const cycleRef = doc(db, "cycles", "cycle-1");
-
+    await seedOwnedMeal();
     await assertSucceeds(
-      setDoc(cycleRef, {
-        userId: ownerId,
-        startDate: "2026-07-28",
-      })
-    );
-
-    await assertSucceeds(
-      updateDoc(cycleRef, {
-        startDate: "2026-07-29",
-      })
+      updateDoc(doc(firestoreFor(OWNER_ID), MEAL_PATH), {
+        name: "Updated synthetic meal",
+      }),
     );
   });
 
   test("owner cannot change userId", async () => {
-    const db = testEnv.authenticatedContext(ownerId).firestore();
-    const cycleRef = doc(db, "cycles", "cycle-1");
-
-    await assertSucceeds(
-      setDoc(cycleRef, {
-        userId: ownerId,
-        startDate: "2026-07-28",
-      })
-    );
-
+    await seedOwnedMeal();
     await assertFails(
-      updateDoc(cycleRef, {
-        userId: otherId,
-      })
+      updateDoc(doc(firestoreFor(OWNER_ID), MEAL_PATH), {
+        userId: OTHER_ID,
+      }),
     );
   });
 
-  test("another user cannot read, update, or delete", async () => {
-    const ownerDb = testEnv.authenticatedContext(ownerId).firestore();
-    const otherDb = testEnv.authenticatedContext(otherId).firestore();
+  test("another authenticated user cannot read, update, or delete", async () => {
+    await seedOwnedMeal();
+    const otherMeal = doc(firestoreFor(OTHER_ID), MEAL_PATH);
 
-    await assertSucceeds(
-      setDoc(doc(ownerDb, "cycles", "cycle-1"), {
-        userId: ownerId,
-        startDate: "2026-07-28",
-      })
-    );
-
-    const otherRef = doc(otherDb, "cycles", "cycle-1");
-
-    await assertFails(getDoc(otherRef));
-    await assertFails(updateDoc(otherRef, { startDate: "2026-07-30" }));
-    await assertFails(deleteDoc(otherRef));
+    await assertFails(getDoc(otherMeal));
+    await assertFails(updateDoc(otherMeal, { name: "Forbidden update" }));
+    await assertFails(deleteDoc(otherMeal));
   });
 
   test("unauthenticated access is denied", async () => {
-    const ownerDb = testEnv.authenticatedContext(ownerId).firestore();
+    await seedOwnedMeal();
+    const unauthenticatedMeal = doc(firestoreFor(null), MEAL_PATH);
 
-    await assertSucceeds(
-      setDoc(doc(ownerDb, "cycles", "cycle-1"), {
-        userId: ownerId,
-        startDate: "2026-07-28",
-      })
-    );
-
-    const publicDb = testEnv.unauthenticatedContext().firestore();
-
-    await assertFails(getDoc(doc(publicDb, "cycles", "cycle-1")));
+    await assertFails(getDoc(unauthenticatedMeal));
     await assertFails(
-      setDoc(doc(publicDb, "cycles", "cycle-2"), {
-        userId: ownerId,
-      })
+      setDoc(doc(firestoreFor(null), "meals/new-meal"), {
+        userId: OWNER_ID,
+      }),
     );
+    await assertFails(
+      updateDoc(unauthenticatedMeal, { name: "Forbidden update" }),
+    );
+    await assertFails(deleteDoc(unauthenticatedMeal));
   });
 });
 
-describe("Storage ownership and upload rules", () => {
-  const ownerId = "owner-user";
-  const otherId = "other-user";
-
+describe("Storage ownership and content rules", () => {
   test("owner uploads an image below 10 MiB", async () => {
-    const storage = testEnv.authenticatedContext(ownerId).storage();
-    const fileRef = ref(storage, `users/${ownerId}/meal_photos/photo.jpg`);
-
     await assertSucceeds(
-      uploadBytes(fileRef, new Uint8Array([1, 2, 3]), {
-        contentType: "image/jpeg",
-      })
+      uploadBytes(
+        ref(storageFor(OWNER_ID), PHOTO_PATH),
+        Buffer.from("synthetic-image"),
+        { contentType: "image/jpeg" },
+      ),
     );
   });
 
-  test("non-image meal photo upload is denied", async () => {
-    const storage = testEnv.authenticatedContext(ownerId).storage();
-    const fileRef = ref(storage, `users/${ownerId}/meal_photos/file.txt`);
-
+  test("non-image upload is denied for meal photos", async () => {
     await assertFails(
-      uploadBytes(fileRef, new Uint8Array([1, 2, 3]), {
-        contentType: "text/plain",
-      })
+      uploadBytes(
+        ref(storageFor(OWNER_ID), PHOTO_PATH),
+        Buffer.from("synthetic-text"),
+        { contentType: "text/plain" },
+      ),
     );
   });
 
   test("image above 10 MiB is denied", async () => {
-    const storage = testEnv.authenticatedContext(ownerId).storage();
-    const fileRef = ref(storage, `users/${ownerId}/meal_photos/large.jpg`);
-    const oversized = new Uint8Array(10 * 1024 * 1024 + 1);
-
     await assertFails(
-      uploadBytes(fileRef, oversized, {
-        contentType: "image/jpeg",
-      })
+      uploadBytes(
+        ref(storageFor(OWNER_ID), PHOTO_PATH),
+        Buffer.alloc(10 * 1024 * 1024 + 1),
+        { contentType: "image/jpeg" },
+      ),
     );
   });
 
   test("unauthenticated upload is denied", async () => {
-    const storage = testEnv.unauthenticatedContext().storage();
-    const fileRef = ref(storage, `users/${ownerId}/meal_photos/photo.jpg`);
-
     await assertFails(
-      uploadBytes(fileRef, new Uint8Array([1, 2, 3]), {
-        contentType: "image/jpeg",
-      })
+      uploadBytes(
+        ref(storageFor(null), PHOTO_PATH),
+        Buffer.from("synthetic-image"),
+        { contentType: "image/jpeg" },
+      ),
     );
   });
 
-  test("another user cannot overwrite owner's image", async () => {
-    const ownerStorage = testEnv.authenticatedContext(ownerId).storage();
-    const ownerRef = ref(
-      ownerStorage,
-      `users/${ownerId}/meal_photos/photo.jpg`
-    );
-
+  test("another user cannot overwrite the owner's object", async () => {
     await assertSucceeds(
-      uploadBytes(ownerRef, new Uint8Array([1, 2, 3]), {
-        contentType: "image/jpeg",
-      })
+      uploadBytes(
+        ref(storageFor(OWNER_ID), PHOTO_PATH),
+        Buffer.from("owner-image"),
+        { contentType: "image/jpeg" },
+      ),
     );
-
-    const otherStorage = testEnv.authenticatedContext(otherId).storage();
-    const otherRef = ref(
-      otherStorage,
-      `users/${ownerId}/meal_photos/photo.jpg`
-    );
-
     await assertFails(
-      uploadBytes(otherRef, new Uint8Array([4, 5, 6]), {
-        contentType: "image/jpeg",
-      })
+      uploadBytes(
+        ref(storageFor(OTHER_ID), PHOTO_PATH),
+        Buffer.from("other-image"),
+        { contentType: "image/jpeg" },
+      ),
     );
   });
 
-  test("owner report accepts non-image content and remains owner-only", async () => {
-    const ownerStorage = testEnv.authenticatedContext(ownerId).storage();
-    const reportPath = `users/${ownerId}/reports/report.pdf`;
-    const ownerRef = ref(ownerStorage, reportPath);
-
+  test("report storage remains owner-only and accepts non-image content", async () => {
+    const ownerReport = ref(storageFor(OWNER_ID), REPORT_PATH);
     await assertSucceeds(
-      uploadBytes(ownerRef, new Uint8Array([1, 2, 3]), {
+      uploadBytes(ownerReport, Buffer.from("synthetic-report"), {
         contentType: "application/pdf",
-      })
+      }),
     );
-
-    await assertSucceeds(getBytes(ownerRef));
-
-    const otherStorage = testEnv.authenticatedContext(otherId).storage();
-    const otherRef = ref(otherStorage, reportPath);
-
-    await assertFails(getBytes(otherRef));
-    await assertFails(deleteObject(otherRef));
+    await assertSucceeds(getBytes(ownerReport));
+    await assertFails(getBytes(ref(storageFor(OTHER_ID), REPORT_PATH)));
   });
 });

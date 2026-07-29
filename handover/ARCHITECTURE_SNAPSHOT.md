@@ -91,7 +91,7 @@ Inputs (both functions):
   PlannerUserContext ─┘
 
 Both functions are independent. Not yet composed.
-Future phases add more files here (officeLunchOptimizer, goFoodPlanner, etc.)
+Future planner work extends this directory without introducing delivery-specific planners.
 ```
 
 ---

@@ -9,6 +9,7 @@ export const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
   { href: "/weight", label: "Weight", icon: "Scale" },
   { href: "/meal", label: "Meal", icon: "UtensilsCrossed" },
+  { href: "/planner", label: "Planner", icon: "CalendarDays" },
   { href: "/progress", label: "Progress", icon: "TrendingUp" },
   { href: "/shopping", label: "Shopping", icon: "ShoppingCart" },
   { href: "/supplements", label: "Supplements", icon: "Pill" },

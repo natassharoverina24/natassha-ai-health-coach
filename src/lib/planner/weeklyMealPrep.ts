@@ -80,6 +80,7 @@ export type WeeklyMealPrepResult =
   | {
       status: "invalid-input";
       errors: WeeklyMealPrepError[];
+      days?: WeeklyMealPrepDay[];
     };
 
 const SLOTS: readonly MealSlot[] = ["breakfast", "lunch", "snack", "dinner"];
@@ -280,7 +281,9 @@ function buildIngredientOutputs(
   }
 
   if (errors.length > 0) {
-    return { status: "invalid-input", errors };
+    return errors.every((error) => error.code === "missing-template-ingredients")
+      ? { status: "invalid-input", errors, days: [...days] }
+      : { status: "invalid-input", errors };
   }
 
   const accumulators = [...aggregate.values()].sort(compareIngredients);

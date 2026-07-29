@@ -4,4 +4,6 @@ export * from "./WeeklyProgressCard";
 export * from "./HealthRingsCard";
 export * from "./AICoachCard";
 export * from "./DailyPlanBriefing";
+export * from "./PlannerNavigationCard";
+export * from "./PlannerWorkspace";
 export * from "./PlanningToolsPanel";

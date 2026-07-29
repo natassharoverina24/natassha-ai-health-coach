@@ -64,7 +64,7 @@ describe("PlanningToolsPanel", () => {
     for (const heading of [
       "Energy calculator",
       "Office lunch optimizer",
-      "Weekly meal prep",
+      "Weekly meal plan",
       "Emergency planner",
       "Adaptive adjustments",
     ]) {
@@ -72,7 +72,7 @@ describe("PlanningToolsPanel", () => {
     }
 
     expect(
-      screen.getByText(/approved production ingredient catalogue is not configured/i),
+      screen.getByText(/shopping data unavailable/i),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/no retained adaptive adjustment applies today/i),
@@ -182,8 +182,14 @@ describe("PlanningToolsPanel", () => {
 
     expect(screen.queryByText(/shopping item:/i)).not.toBeInTheDocument();
     expect(
-      screen.getByText(/no shopping list or batch-cooking quantities were generated/i),
+      screen.getByText(/shopping-list and batch-cooking sections are disabled/i),
     ).toBeInTheDocument();
+    const week = screen.getByRole("list", { name: "Seven-day meal plan" });
+    expect(week.children).toHaveLength(7);
+    expect(within(week).getAllByText(/^breakfast$/i)).toHaveLength(7);
+    expect(within(week).getAllByText(/^lunch$/i)).toHaveLength(7);
+    expect(within(week).getAllByText(/^snack$/i)).toHaveLength(7);
+    expect(within(week).getAllByText(/^dinner$/i)).toHaveLength(7);
     expect(document.body).not.toHaveTextContent(
       /thyroid diet|supplement recommendation|medication advice/i,
     );

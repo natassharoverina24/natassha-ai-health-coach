@@ -91,9 +91,9 @@ never as "assume a typical default."
   frequency) confirmed yet.
 - Mixue: confirmed as a known temptation — see §8 for the weakness
   framing.
-- GoFood / food-delivery habits: confirmed as a regular habit, with a
+- Food-delivery habits: confirmed as a regular habit, with a
   typical order budget of around Rp 30,000.
-- Budget considerations: the Rp 30,000 GoFood budget above is the only
+- Budget considerations: the Rp 30,000 food-delivery budget above is the only
   confirmed figure; no broader food-budget constraint has been confirmed.
 
 Common Indonesian meal staples (rice, chicken, fish, egg, tempe, tofu,
@@ -181,7 +181,7 @@ Confirmed weaknesses, in Natassha's own terms:
 - **Busy work schedule** — confirmed as a contributing factor, including
   a pattern of eating and then sleeping shortly after when work runs
   late.
-- **GoFood convenience** — confirmed: the ease of ordering (see the
+- **Food-delivery convenience** — confirmed: the ease of ordering (see the
   ~Rp 30,000 typical order in §5) is itself part of the challenge, not
   just what's ordered.
 - **Weekend temptation** — confirmed, plausibly connected to the

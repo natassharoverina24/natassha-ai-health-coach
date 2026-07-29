@@ -1,5 +1,11 @@
 # AI Planning Layer — Specification
 
+> **Current scope override:** GoFood-specific planning is cancelled and out
+> of scope. Any GoFood references below are retained only as historical
+> specification context and are non-normative. Delivery purchases use the
+> ordinary meal-logging flow; no delivery catalogue, pricing, filtering, or
+> ordering behavior may be implemented.
+
 **Status:** Business specification only. Nothing in this document has been
 implemented. No engine, the Decision Engine, and the Response Layer are
 unchanged by this document and remain exactly as specified in

@@ -166,21 +166,12 @@ describe("AICoachCard — auto-loads the daily briefing on mount", () => {
     expect(mockedBuildPlannerUserContext).toHaveBeenCalledTimes(1);
   });
 
-  it("renders the complete deterministic daily and meal plan automatically", async () => {
+  it("keeps the dashboard briefing compact and separate from the planner workspace", async () => {
     render(<AICoachCard />);
 
-    expect(
-      await screen.findByRole("heading", { name: "Today's plan" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Schedule" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Meals" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Planning tools" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("1400 kcal")).toBeInTheDocument();
-    expect(
-      screen.getAllByLabelText(/kilocalories and \d+ grams protein$/),
-    ).toHaveLength(4);
+    expect(await screen.findByText("Biggest risk today")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Today's plan" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Planning tools" })).not.toBeInTheDocument();
   });
 });
 
@@ -248,7 +239,12 @@ describe("AICoachCard — briefing error and retry", () => {
   it("shows an error state with retry if the briefing fails to load", async () => {
     mockedBuildCoachDecision.mockReset().mockRejectedValue(new Error("Network unavailable"));
     render(<AICoachCard />);
-    await waitFor(() => expect(screen.getByText("Network unavailable")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText("Today's briefing is temporarily unavailable."),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("Network unavailable")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
@@ -258,7 +254,11 @@ describe("AICoachCard — briefing error and retry", () => {
       .mockRejectedValueOnce(new Error("Network unavailable"))
       .mockResolvedValueOnce(makeDecision([proteinInsight]));
     render(<AICoachCard />);
-    await waitFor(() => expect(screen.getByText("Network unavailable")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText("Today's briefing is temporarily unavailable."),
+      ).toBeInTheDocument(),
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(screen.getByText("Biggest risk today")).toBeInTheDocument());

@@ -1,5 +1,9 @@
 # Project Handover — After Phase 5
 
+> **Historical document:** GoFood-specific planning described below was
+> subsequently cancelled and is not product scope. Delivery purchases use the
+> ordinary meal-logging flow; the historical references are non-normative.
+
 **Purpose:** This document allows a new Claude conversation to continue
 the Natassha AI Health Coach project seamlessly. It summarizes everything
 built, everything frozen, everything remaining, and every constraint a

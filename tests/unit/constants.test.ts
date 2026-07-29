@@ -1,12 +1,13 @@
 import { DEFAULT_GOALS, DEFAULT_USER_PROFILE, NAV_ITEMS } from "@/lib/utils/constants";
 
 describe("NAV_ITEMS", () => {
-  it("includes all eight required pages", () => {
+  it("includes all nine required pages", () => {
     const hrefs = NAV_ITEMS.map((item) => item.href);
     expect(hrefs).toEqual([
       "/dashboard",
       "/weight",
       "/meal",
+      "/planner",
       "/progress",
       "/shopping",
       "/supplements",

@@ -427,6 +427,5 @@ describe("applyAdaptiveAdjustments", () => {
     expect(serialized).not.toMatch(
       /skip|save calories|compensate afterward|diagnos|treats disease|supplement|medication/i,
     );
-    expect(serialized).not.toMatch(/gofood/i);
   });
 });

@@ -135,7 +135,7 @@ Future planners (Office Lunch Optimizer and Adaptive Planner) will need to read 
 | 2 | Migraine requirements | Migraine Engine |
 | 3 | Menstrual / PMS adjustments | Menstrual Engine |
 | 4 | Daily nutrition targets | Stored goals |
-| 5 (lowest) | Practical constraints | Time, budget, GoFood, office lunch |
+| 5 (lowest) | Practical constraints | Time, budget, office lunch |
 
 ---
 
@@ -163,7 +163,7 @@ generateCoachReply(CoachDecision) → LLM call → CoachReply
 | Module | Depends on |
 |---|---|
 | Office Lunch Optimizer (6C) | `CoachDecision`, `PlannerUserContext`, `detectActiveConstraints()` from mealPlanner, `OFFICE_LUNCH_ITEMS` from nutritionEstimates |
-| Weekly Meal Prep (6E) | `generateMealPlan()`, `MEAL_TEMPLATES`, `shopping` collection's `addedFrom: "ai-suggestion"` |
+| Weekly Meal Prep (6E) | `generateMealPlan()`, `MEAL_TEMPLATES`, approved injected ingredient data |
 | Emergency Planner (6F) | `generateDailyPlan()`, `generateMealPlan()`, `PlannerUserContext.currentHour` |
 | Adaptive Planner (6G) | 5 `adaptive.*` insight IDs from CoachDecision, existing `MealPlan`/`DailyPlan` |
 

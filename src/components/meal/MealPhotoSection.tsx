@@ -33,6 +33,7 @@ export function MealPhotoSection({
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [analysis, setAnalysis] = useState<MealPhotoAnalysis | null>(null);
   const [foodName, setFoodName] = useState("");
   const [portion, setPortion] = useState("");
@@ -41,6 +42,7 @@ export function MealPhotoSection({
   const [analyzing, setAnalyzing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const releasePreview = () => {
     if (previewUrlRef.current) {
@@ -54,11 +56,15 @@ export function MealPhotoSection({
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
   }, []);
 
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
     if (!isSupportedMealImageType(file.type)) {
+      releasePreview();
+      setSelectedFile(null);
+      setAnalysis(null);
+      setSaved(false);
       setError("Choose a JPEG, PNG, or WebP image.");
       return;
     }
@@ -67,11 +73,19 @@ export function MealPhotoSection({
     const objectUrl = URL.createObjectURL(file);
     previewUrlRef.current = objectUrl;
     setPreviewUrl(objectUrl);
+    setSelectedFile(file);
     setAnalysis(null);
+    setSaved(false);
     setError(null);
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedFile) return;
     setAnalyzing(true);
+    setSaved(false);
+    setError(null);
     try {
-      const result = await onAnalyzeFile(file);
+      const result = await onAnalyzeFile(selectedFile);
       setAnalysis(result);
       setFoodName(result.items.map((item) => item.name).join(", "));
       setPortion(
@@ -120,7 +134,9 @@ export function MealPhotoSection({
         estimatedAt: analysis.estimatedAt,
       });
       setAnalysis(null);
+      setSelectedFile(null);
       releasePreview();
+      setSaved(true);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -140,7 +156,10 @@ export function MealPhotoSection({
           The image is analyzed temporarily and is never saved. Estimates are
           uncertain and editable.
         </p>
-        <p className="mt-1 text-xs font-medium text-amber-700">
+        <p
+          id="meal-photo-privacy-warning"
+          className="mt-1 text-xs font-medium text-amber-700"
+        >
           Upload food photos only. Do not include faces, documents, addresses,
           or other sensitive information.
         </p>
@@ -178,6 +197,17 @@ export function MealPhotoSection({
           Choose image
         </Button>
       </div>
+
+      {selectedFile && !analysis && (
+        <Button
+          type="button"
+          onClick={() => void handleAnalyze()}
+          isLoading={analyzing}
+          aria-describedby="meal-photo-privacy-warning"
+        >
+          Analyse Photo
+        </Button>
+      )}
 
       <input
         ref={cameraInputRef}
@@ -257,7 +287,16 @@ export function MealPhotoSection({
         </form>
       )}
 
-      {error && <p className="text-xs text-danger">{error}</p>}
+      {saved && (
+        <p role="status" className="text-xs font-medium text-teal">
+          Confirmed estimates saved. The image was not stored.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="text-xs text-danger">
+          {error}
+        </p>
+      )}
     </section>
   );
 }

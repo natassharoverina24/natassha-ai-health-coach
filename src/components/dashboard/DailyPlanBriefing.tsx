@@ -25,8 +25,9 @@ export function DailyPlanBriefing({
 }: DailyPlanBriefingProps) {
   return (
     <section
+      id="daily-meal-plan"
       aria-labelledby="daily-plan-heading"
-      className="flex flex-col gap-4 border-t border-ink/8 pt-4"
+      className="flex scroll-mt-6 flex-col gap-4"
     >
       <div>
         <h2

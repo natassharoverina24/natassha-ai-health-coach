@@ -232,7 +232,7 @@ export function PlanningToolsPanel({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <PlannerCard title="Energy calculator">
+        <PlannerCard id="energy-calculator" title="Energy calculator">
           <form
             aria-label="Energy calculator"
             className="grid gap-3 sm:grid-cols-3"
@@ -324,7 +324,7 @@ export function PlanningToolsPanel({
           <EnergyResultView result={energyResult} />
         </PlannerCard>
 
-        <PlannerCard title="Office lunch optimizer">
+        <PlannerCard id="office-lunch-optimizer" title="Office lunch optimizer">
           <form
             aria-label="Office lunch optimizer"
             className="grid gap-3 sm:grid-cols-3"
@@ -358,7 +358,7 @@ export function PlanningToolsPanel({
           <OfficeLunchResultView result={officeLunchResult} />
         </PlannerCard>
 
-        <PlannerCard title="Weekly meal prep">
+        <PlannerCard id="weekly-meal-plan" title="Weekly meal plan">
           <WeeklyResultView result={weeklyResult} />
         </PlannerCard>
 
@@ -441,14 +441,19 @@ export function PlanningToolsPanel({
 }
 
 function PlannerCard({
+  id,
   title,
   children,
 }: {
+  id?: string;
   title: string;
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-control border border-ink/8 p-4">
+    <section
+      id={id}
+      className="scroll-mt-6 rounded-control border border-ink/8 p-4"
+    >
       <h3 className="text-sm font-semibold text-ink">{title}</h3>
       <div className="mt-3 flex flex-col gap-3">{children}</div>
     </section>
@@ -568,11 +573,14 @@ function WeeklyResultView({ result }: { result: WeeklyMealPrepResult }) {
     );
     if (missingMappings.length > 0) {
       return (
-        <StatusMessage tone="neutral">
-          Weekly meal selections are available, but the approved production
-          ingredient catalogue is not configured. No shopping list or
-          batch-cooking quantities were generated.
-        </StatusMessage>
+        <div className="flex flex-col gap-3">
+          <StatusMessage tone="neutral">
+            Shopping data unavailable. All seven selected meal days remain
+            available, but shopping-list and batch-cooking sections are
+            disabled.
+          </StatusMessage>
+          {result.days && <WeeklyDays days={result.days} />}
+        </div>
       );
     }
     return (
@@ -591,7 +599,52 @@ function WeeklyResultView({ result }: { result: WeeklyMealPrepResult }) {
         {result.days.length} days · {result.shoppingList.length} shopping items ·{" "}
         {result.batchCookingOpportunities.length} batch opportunities
       </p>
+      <WeeklyDays days={result.days} />
     </div>
+  );
+}
+
+function WeeklyDays({
+  days,
+}: {
+  days: NonNullable<
+    Extract<WeeklyMealPrepResult, { status: "invalid-input" }>["days"]
+  >;
+}) {
+  const slots: MealSlot[] = ["breakfast", "lunch", "snack", "dinner"];
+  return (
+    <ol aria-label="Seven-day meal plan" className="grid gap-3">
+      {days.map((day) => (
+        <li key={day.date} className="rounded-control border border-ink/8 p-3">
+          <h4 className="text-sm font-semibold text-ink">{day.date}</h4>
+          <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+            {slots.map((slot) => {
+              const recommendation = day.mealPlan[slot];
+              return (
+                <li key={slot} className="min-w-0 rounded-control bg-teal-soft px-3 py-2">
+                  <p className="text-xs font-semibold uppercase text-teal">
+                    {slot}
+                  </p>
+                  <p className="truncate text-sm font-semibold text-ink">
+                    {recommendation.template.name}
+                  </p>
+                  <p className="text-xs text-ink-muted">
+                    {recommendation.template.serving}
+                  </p>
+                  <p className="text-xs text-ink-muted">
+                    {recommendation.template.calories} kcal ·{" "}
+                    {recommendation.template.proteinG} g protein
+                  </p>
+                  <p className="mt-1 text-xs text-ink-muted">
+                    {recommendation.reason}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </li>
+      ))}
+    </ol>
   );
 }
 

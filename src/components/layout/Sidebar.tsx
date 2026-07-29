@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   FileBarChart,
+  CalendarDays,
   LayoutDashboard,
   Pill,
   Scale,
@@ -24,6 +25,7 @@ const ICONS: Record<string, typeof LayoutDashboard> = {
   ShoppingCart,
   Pill,
   FileBarChart,
+  CalendarDays,
   Settings: SettingsIcon,
 };
 
