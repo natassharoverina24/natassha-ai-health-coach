@@ -4,6 +4,8 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import {
   CalendarClock,
+  CheckCircle2,
+  Circle,
   Droplets,
   RefreshCw,
   Sparkles,
@@ -20,6 +22,7 @@ import type {
   TraceableValue,
 } from "@/lib/coach-plan";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
+import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repository";
 import type { InsightSummary } from "@/lib/planner";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -31,6 +34,8 @@ export function TodayDashboard() {
   const [quickWaterMl, setQuickWaterMl] = useState(0);
   const [waterSaving, setWaterSaving] = useState(false);
   const [waterError, setWaterError] = useState<string | null>(null);
+  const [timelineSavingId, setTimelineSavingId] = useState<string | null>(null);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
 
   const addWater = async (amountMl: number) => {
     if (!user || !plan) return;
@@ -52,6 +57,29 @@ export function TodayDashboard() {
     }
   };
 
+  const completeTimelineItem = async (
+    item: TodayCoachPlan["timeline"][number],
+  ) => {
+    if (!user || !item.manualCompletionAllowed || timelineSavingId) return;
+    setTimelineSavingId(item.id);
+    setTimelineError(null);
+    try {
+      await timelineCompletionsRepository.markCompleted({
+        userId: user.uid,
+        date: item.date,
+        itemId: item.id,
+        completedAt: new Date().toISOString(),
+      });
+      await refresh();
+    } catch {
+      setTimelineError(
+        "This timeline check-in could not be saved. Please try again.",
+      );
+    } finally {
+      setTimelineSavingId(null);
+    }
+  };
+
   if (loading && !plan) {
     return <TodayLoadingState />;
   }
@@ -65,7 +93,7 @@ export function TodayDashboard() {
           </h1>
           <p role="alert" className="mt-2 text-sm text-ink-muted">
             {error ??
-              "Sign in and complete your profile to prepare today's plan."}
+              "Sign in and complete your profile to prepare today’s plan."}
           </p>
           {user && (
             <Button
@@ -91,7 +119,7 @@ export function TodayDashboard() {
           role="status"
           className="rounded-control bg-amber-soft px-4 py-3 text-sm text-ink"
         >
-          Today's core plan is ready. Optional tools will appear when their
+          Today’s core plan is ready. Optional tools will appear when their
           structured inputs are available.
         </p>
       )}
@@ -105,7 +133,12 @@ export function TodayDashboard() {
       <TodayHighlights plan={plan} />
 
       <div className="grid min-w-0 gap-5 xl:grid-cols-2">
-        <TodayTimeline plan={plan} />
+        <TodayTimeline
+          plan={plan}
+          savingId={timelineSavingId}
+          error={timelineError}
+          onComplete={completeTimelineItem}
+        />
         <TodayMealSummary plan={plan} />
       </div>
 
@@ -141,14 +174,14 @@ function TodayHero({
             {plan.greeting.value}
           </h1>
           <p className="mt-2 text-sm text-ink-muted">
-            One traceable view of today's retained coaching plan.
+            One traceable view of today’s retained coaching plan.
           </p>
         </div>
         <Button
           type="button"
           size="icon"
           variant="ghost"
-          aria-label="Refresh today's plan"
+          aria-label="Refresh today’s plan"
           isLoading={refreshing}
           onClick={() => void onRefresh()}
         >
@@ -191,7 +224,7 @@ function TodayHighlights({ plan }: { plan: TodayCoachPlan }) {
   return (
     <div className="grid gap-3 md:grid-cols-3">
       <HighlightCard
-        title="Today's Focus"
+        title="Today’s Focus"
         item={plan.focus}
         icon={<Target size={17} />}
         emptyText="No retained focus is available."
@@ -203,7 +236,7 @@ function TodayHighlights({ plan }: { plan: TodayCoachPlan }) {
         emptyText="No retained risk is active."
       />
       <HighlightCard
-        title="Today's Win"
+        title="Today’s Win"
         item={plan.todaysWin}
         icon={<Trophy size={17} />}
         emptyText="No retained win is available yet."
@@ -243,7 +276,19 @@ function HighlightCard({
   );
 }
 
-function TodayTimeline({ plan }: { plan: TodayCoachPlan }) {
+function TodayTimeline({
+  plan,
+  savingId,
+  error,
+  onComplete,
+}: {
+  plan: TodayCoachPlan;
+  savingId: string | null;
+  error: string | null;
+  onComplete: (
+    item: TodayCoachPlan["timeline"][number],
+  ) => Promise<void>;
+}) {
   return (
     <GlassCard>
       <section aria-labelledby="today-timeline-heading">
@@ -251,17 +296,87 @@ function TodayTimeline({ plan }: { plan: TodayCoachPlan }) {
           <CalendarClock size={18} className="text-teal" />
           Timeline
         </h2>
-        <ol className="mt-3 grid gap-2">
+        <ol className="mt-3 grid gap-3">
           {plan.timeline.map((item) => (
             <li
-              key={item.kind}
-              className="flex items-center justify-between gap-3 rounded-control bg-teal-soft px-3 py-2"
+              key={item.id}
+              className="rounded-control border border-ink/8 bg-teal-soft px-3 py-3"
             >
-              <span className="text-sm font-medium text-ink">{item.label}</span>
-              <time className="text-sm font-semibold text-teal">{item.time}</time>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-2">
+                  {item.status === "completed" ? (
+                    <CheckCircle2
+                      size={18}
+                      className="mt-0.5 shrink-0 text-teal"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Circle
+                      size={18}
+                      className="mt-0.5 shrink-0 text-ink-muted"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink">
+                      {item.action}
+                    </p>
+                    <p className="mt-1 text-xs text-ink-muted">
+                      {item.reason}
+                    </p>
+                  </div>
+                </div>
+                <time className="shrink-0 text-sm font-semibold text-teal">
+                  {item.time}
+                </time>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span
+                  className="rounded-full bg-bg-elevated px-2 py-1 font-semibold capitalize text-ink"
+                  aria-label={`Status: ${item.status}`}
+                >
+                  {item.status}
+                </span>
+                <span className="text-ink-muted">{item.statusMessage}</span>
+              </div>
+              {item.impact.length > 0 && (
+                <p className="mt-2 text-xs text-ink-muted">
+                  Daily impact:{" "}
+                  {item.impact
+                    .map((impact) =>
+                      impact.plannedValue === null
+                        ? `${impact.dailyTarget} ${impact.unit} daily target`
+                        : `${impact.plannedValue} ${impact.unit} planned`,
+                    )
+                    .join(" · ")}
+                </p>
+              )}
+              {item.alternative && (
+                <p className="mt-1 text-xs text-ink-muted">
+                  Alternative: {item.alternative}
+                </p>
+              )}
+              {item.manualCompletionAllowed &&
+                item.status !== "completed" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-3"
+                    disabled={savingId !== null}
+                    isLoading={savingId === item.id}
+                    onClick={() => void onComplete(item)}
+                  >
+                    Mark complete
+                  </Button>
+                )}
             </li>
           ))}
         </ol>
+        {error && (
+          <p role="alert" className="mt-3 text-xs text-danger">
+            {error}
+          </p>
+        )}
       </section>
     </GlassCard>
   );
@@ -323,7 +438,7 @@ function TodayMetrics({
     <GlassCard>
       <section aria-labelledby="today-metrics-heading">
         <h2 id="today-metrics-heading" className="text-base font-semibold text-ink">
-          Today's metrics
+          Today’s metrics
         </h2>
         <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {items.map(([label, value]) => (

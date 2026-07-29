@@ -3,6 +3,10 @@ import {
   buildPlannerUserContext,
 } from "@/lib/ai/contextBuilder";
 import type { CoachDecision } from "@/lib/engines/decisionEngine";
+import { mealsRepository } from "@/lib/db/meals.repository";
+import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repository";
+import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
+import { workoutsRepository } from "@/lib/db/workouts.repository";
 import {
   applyAdaptiveAdjustments,
   generateDailyPlan,
@@ -10,7 +14,6 @@ import {
   generateMealPlan,
   generateOfficeLunchPlan,
   generateWeeklyMealPrep,
-  type DailyPlan,
   type InsightSummary,
   type MealPlan,
   type MealSlot,
@@ -26,15 +29,7 @@ import {
   type TodayCoachPlanWarning,
   type TraceableValue,
 } from "./types";
-
-const SCHEDULE_ORDER = [
-  "breakfast",
-  "lunch",
-  "snack",
-  "dinner",
-  "workout",
-  "waterReminder",
-] as const;
+import { reconcileTimelineStatus } from "./reconcileTimelineStatus";
 
 const MEAL_RELEVANT_INSIGHT_IDS = new Set([
   "migraine.active_symptom_care",
@@ -96,14 +91,14 @@ function warningsFor(
     warnings.push({
       code: "office-lunch-budget-unavailable",
       message:
-        "Office lunch guidance will appear when today's remaining nutrition budget is available.",
+        "Office lunch guidance will appear when today’s remaining nutrition budget is available.",
       sourceIds: ["planner.office-lunch"],
     });
   } else if (dataAvailability.officeLunch === "invalid-input") {
     warnings.push({
       code: "office-lunch-invalid-input",
       message:
-        "Office lunch guidance could not be prepared from the supplied budget, but the rest of today's plan is ready.",
+        "Office lunch guidance could not be prepared from the supplied budget, but the rest of today’s plan is ready.",
       sourceIds: ["planner.office-lunch"],
     });
   }
@@ -118,7 +113,7 @@ function warningsFor(
     warnings.push({
       code: "weekly-planning-invalid-input",
       message:
-        "Weekly meal prep needs reviewed planning data, while today's core plan remains available.",
+        "Weekly meal prep needs reviewed planning data, while today’s core plan remains available.",
       sourceIds: ["planner.weekly-meal-prep"],
     });
   }
@@ -126,7 +121,7 @@ function warningsFor(
     warnings.push({
       code: "emergency-disruption-unavailable",
       message:
-        "No disruption was supplied, so today's regular plan remains in place.",
+        "No disruption was supplied, so today’s regular plan remains in place.",
       sourceIds: ["planner.emergency"],
     });
   } else if (dataAvailability.emergencyAdjustment === "invalid-input") {
@@ -145,6 +140,38 @@ function warningsFor(
       sourceIds: ["planner.adaptive-adjustments"],
     });
   }
+  if (dataAvailability.timelineStatus.mealLogs === "unavailable") {
+    warnings.push({
+      code: "timeline-meal-logs-unavailable",
+      message:
+        "Meal activity could not be checked, so meal timeline items remain open without blocking today's plan.",
+      sourceIds: ["repository.meal-log"],
+    });
+  }
+  if (dataAvailability.timelineStatus.waterLogs === "unavailable") {
+    warnings.push({
+      code: "timeline-water-logs-unavailable",
+      message:
+        "Water activity could not be checked, so hydration remains open without blocking today's plan.",
+      sourceIds: ["repository.water-log"],
+    });
+  }
+  if (dataAvailability.timelineStatus.workoutLogs === "unavailable") {
+    warnings.push({
+      code: "timeline-workout-logs-unavailable",
+      message:
+        "Workout activity could not be checked, so the workout remains open without blocking today's plan.",
+      sourceIds: ["repository.workout-log"],
+    });
+  }
+  if (dataAvailability.timelineStatus.manualCompletions === "unavailable") {
+    warnings.push({
+      code: "timeline-manual-completions-unavailable",
+      message:
+        "Manual timeline check-ins could not be loaded, while the rest of today's plan remains available.",
+      sourceIds: ["repository.manual"],
+    });
+  }
   return warnings;
 }
 
@@ -155,12 +182,10 @@ function buildTraceSourceIds(
   return [prefix, ...decision.insights.map((insight) => insight.id)];
 }
 
-function buildTimeline(dailyPlan: DailyPlan) {
-  return SCHEDULE_ORDER.map((kind) => ({
-    kind,
-    ...dailyPlan.schedule[kind],
-    sourceIds: [`planner.daily.schedule.${kind}`],
-  }));
+function fulfilledValue<T>(
+  result: PromiseSettledResult<T>,
+): T | null {
+  return result.status === "fulfilled" ? result.value : null;
 }
 
 /**
@@ -178,6 +203,35 @@ export async function buildTodayCoachPlan(
   ]);
   const dailyPlan = generateDailyPlan(decision, context);
   const mealPlan = generateMealPlan(decision, context);
+  const meals = buildMeals(decision, mealPlan);
+
+  const [
+    mealLogsResult,
+    waterLogsResult,
+    workoutLogsResult,
+    manualCompletionsResult,
+  ] = await Promise.allSettled([
+    mealsRepository.listForUserByDate(userId, context.today),
+    waterLogsRepository.listForUserByDate(userId, context.today),
+    workoutsRepository.listForUserByDate(userId, context.today),
+    timelineCompletionsRepository.listForUserByDate(userId, context.today),
+  ]);
+  const mealLogs = fulfilledValue(mealLogsResult);
+  const waterLogs = fulfilledValue(waterLogsResult);
+  const workoutLogs = fulfilledValue(workoutLogsResult);
+  const manualCompletions = fulfilledValue(manualCompletionsResult);
+  const timeline = reconcileTimelineStatus({
+    date: context.today,
+    currentDate: context.today,
+    dailyPlan,
+    meals,
+    evidence: {
+      mealLogs,
+      waterLogs,
+      workoutLogs,
+      manualCompletions,
+    },
+  });
 
   let officeLunch: ReturnType<typeof generateOfficeLunchPlan> | null = null;
   let officeLunchAvailability: CoachPlanAvailabilityStatus = "unavailable";
@@ -222,6 +276,13 @@ export async function buildTodayCoachPlan(
     emergencyAdjustment: availabilityFromResult(emergencyAdjustment),
     adaptiveAdjustments: availabilityFromResult(adaptiveAdjustments),
     weeklyContext: availabilityFromResult(weeklyContext),
+    timelineStatus: {
+      mealLogs: mealLogs === null ? "unavailable" : "available",
+      waterLogs: waterLogs === null ? "unavailable" : "available",
+      workoutLogs: workoutLogs === null ? "unavailable" : "available",
+      manualCompletions:
+        manualCompletions === null ? "unavailable" : "available",
+    },
   };
   const warnings = warningsFor(dataAvailability);
 
@@ -230,7 +291,7 @@ export async function buildTodayCoachPlan(
     date: context.today,
     status: warnings.length === 0 ? "ready" : "partial",
     greeting: {
-      value: "Today's coach plan is ready.",
+      value: "Today’s coach plan is ready.",
       sourceIds: ["coach-plan.static-greeting"],
     },
     briefing: {
@@ -248,8 +309,8 @@ export async function buildTodayCoachPlan(
     focus: tracedInsight(dailyPlan.summary.topPriority),
     biggestRisk: tracedInsight(dailyPlan.summary.biggestRisk),
     todaysWin: tracedInsight(dailyPlan.summary.todaysWin),
-    timeline: buildTimeline(dailyPlan),
-    meals: buildMeals(decision, mealPlan),
+    timeline,
+    meals,
     metrics: {
       value: { ...dailyPlan.targets },
       sourceIds: ["planner.daily.targets", "planner-context"],

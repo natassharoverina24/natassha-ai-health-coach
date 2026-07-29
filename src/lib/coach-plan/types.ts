@@ -26,14 +26,52 @@ export interface TraceableValue<T> {
 }
 
 export interface TodayCoachTimelineItem extends ScheduleSlot {
+  id: string;
+  date: string;
   kind:
     | "breakfast"
     | "lunch"
     | "snack"
     | "dinner"
     | "workout"
-    | "waterReminder";
+    | "waterReminder"
+    | "sleepPreparation";
+  action: string;
+  reason: string;
+  alternative: string | null;
+  impact: TodayCoachTimelineImpact[];
+  status: TodayCoachTimelineStatus;
+  statusMessage: string;
+  completionSource: TodayCoachTimelineCompletionSource;
+  manualCompletionAllowed: boolean;
   sourceIds: string[];
+}
+
+export type TodayCoachTimelineStatus =
+  | "pending"
+  | "completed"
+  | "missed"
+  | "adjusted";
+
+export type TodayCoachTimelineCompletionSource =
+  | "meal-log"
+  | "water-log"
+  | "workout-log"
+  | "manual";
+
+export interface TodayCoachTimelineImpact {
+  metric: "calories" | "proteinG" | "waterMl" | "workoutMin";
+  plannedValue: number | null;
+  dailyTarget: number;
+  unit: "kcal" | "g" | "ml" | "min";
+  sourceIds: string[];
+}
+
+export interface TodayCoachTimelineDataAvailability {
+  mealLogs: "available" | "unavailable";
+  waterLogs: "available" | "unavailable";
+  workoutLogs: "available" | "unavailable";
+  manualCompletions: "available" | "unavailable";
 }
 
 export interface TodayCoachMealGuidance extends MealRecommendation {
@@ -61,6 +99,7 @@ export interface TodayCoachDataAvailability {
   emergencyAdjustment: CoachPlanAvailabilityStatus;
   adaptiveAdjustments: CoachPlanAvailabilityStatus;
   weeklyContext: CoachPlanAvailabilityStatus;
+  timelineStatus: TodayCoachTimelineDataAvailability;
 }
 
 export type TodayCoachPlanWarningCode =
@@ -70,7 +109,11 @@ export type TodayCoachPlanWarningCode =
   | "office-lunch-invalid-input"
   | "weekly-planning-invalid-input"
   | "emergency-adjustment-invalid-input"
-  | "adaptive-adjustment-invalid-input";
+  | "adaptive-adjustment-invalid-input"
+  | "timeline-meal-logs-unavailable"
+  | "timeline-water-logs-unavailable"
+  | "timeline-workout-logs-unavailable"
+  | "timeline-manual-completions-unavailable";
 
 export interface TodayCoachPlanWarning {
   code: TodayCoachPlanWarningCode;

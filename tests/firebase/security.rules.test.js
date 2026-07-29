@@ -25,6 +25,8 @@ const PROJECT_ID = "demo-natassha-health-coach";
 const OWNER_ID = "owner-user";
 const OTHER_ID = "other-user";
 const MEAL_PATH = "meals/owned-meal";
+const TIMELINE_COMPLETION_PATH =
+  "timeline_completions/owner-user__2026-07-29__sleepPreparation";
 const PHOTO_PATH = `users/${OWNER_ID}/meal_photos/meal.jpg`;
 const REPORT_PATH = `users/${OWNER_ID}/reports/report.pdf`;
 
@@ -83,6 +85,22 @@ async function seedOwnedMeal() {
 }
 
 describe("Firestore ownership rules", () => {
+  test("timeline completion remains owner-only", async () => {
+    await assertSucceeds(
+      setDoc(
+        doc(firestoreFor(OWNER_ID), TIMELINE_COMPLETION_PATH),
+        {
+          userId: OWNER_ID,
+          date: "2026-07-29",
+          itemId: "2026-07-29:sleepPreparation",
+        },
+      ),
+    );
+    await assertFails(
+      getDoc(doc(firestoreFor(OTHER_ID), TIMELINE_COMPLETION_PATH)),
+    );
+  });
+
   test("owner creates a document with matching userId", async () => {
     await assertSucceeds(
       setDoc(doc(firestoreFor(OWNER_ID), MEAL_PATH), {

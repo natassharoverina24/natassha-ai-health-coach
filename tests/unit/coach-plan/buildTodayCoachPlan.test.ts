@@ -8,6 +8,10 @@ import {
 } from "@/lib/coach-plan";
 import type { CoachDecision } from "@/lib/engines/decisionEngine";
 import type { EngineInsight } from "@/lib/engines/types";
+import { mealsRepository } from "@/lib/db/meals.repository";
+import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repository";
+import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
+import { workoutsRepository } from "@/lib/db/workouts.repository";
 import {
   generateDailyPlan,
   generateMealPlan,
@@ -19,6 +23,18 @@ import {
 jest.mock("@/lib/ai/contextBuilder", () => ({
   buildCoachDecision: jest.fn(),
   buildPlannerUserContext: jest.fn(),
+}));
+jest.mock("@/lib/db/meals.repository", () => ({
+  mealsRepository: { listForUserByDate: jest.fn() },
+}));
+jest.mock("@/lib/db/waterLogs.repository", () => ({
+  waterLogsRepository: { listForUserByDate: jest.fn() },
+}));
+jest.mock("@/lib/db/workouts.repository", () => ({
+  workoutsRepository: { listForUserByDate: jest.fn() },
+}));
+jest.mock("@/lib/db/timelineCompletions.repository", () => ({
+  timelineCompletionsRepository: { listForUserByDate: jest.fn() },
 }));
 
 const proteinInsight: EngineInsight = {
@@ -94,6 +110,18 @@ const completeOptions: TodayCoachPlanOptions = {
 beforeEach(() => {
   (buildCoachDecision as jest.Mock).mockReset().mockResolvedValue(decision);
   (buildPlannerUserContext as jest.Mock).mockReset().mockResolvedValue(context);
+  (mealsRepository.listForUserByDate as jest.Mock)
+    .mockReset()
+    .mockResolvedValue([]);
+  (waterLogsRepository.listForUserByDate as jest.Mock)
+    .mockReset()
+    .mockResolvedValue([]);
+  (workoutsRepository.listForUserByDate as jest.Mock)
+    .mockReset()
+    .mockResolvedValue([]);
+  (timelineCompletionsRepository.listForUserByDate as jest.Mock)
+    .mockReset()
+    .mockResolvedValue([]);
 });
 
 describe("buildTodayCoachPlan", () => {
@@ -131,6 +159,12 @@ describe("buildTodayCoachPlan", () => {
           emergencyAdjustment: "available",
           adaptiveAdjustments: "available",
           weeklyContext: "available",
+          timelineStatus: {
+            mealLogs: "available",
+            waterLogs: "available",
+            workoutLogs: "available",
+            manualCompletions: "available",
+          },
         },
         warnings: [],
       }),
@@ -234,6 +268,29 @@ describe("buildTodayCoachPlan", () => {
         sourceIds: ["planner.office-lunch"],
       }),
     );
+  });
+
+  it("keeps the timeline available when one optional log source fails", async () => {
+    (waterLogsRepository.listForUserByDate as jest.Mock).mockRejectedValue(
+      new Error("private Firebase detail"),
+    );
+
+    const result = await buildTodayCoachPlan("user-1");
+
+    expect(result.status).toBe("partial");
+    expect(result.timeline).toHaveLength(6);
+    expect(result.dataAvailability.timelineStatus.waterLogs).toBe(
+      "unavailable",
+    );
+    expect(
+      result.timeline.find((item) => item.kind === "waterReminder")?.status,
+    ).toBe("pending");
+    expect(result.warnings).toContainEqual(
+      expect.objectContaining({
+        code: "timeline-water-logs-unavailable",
+      }),
+    );
+    expect(JSON.stringify(result)).not.toMatch(/private Firebase detail/i);
   });
 
   it("does not fabricate decisions, meal nutrition, or medical content", async () => {

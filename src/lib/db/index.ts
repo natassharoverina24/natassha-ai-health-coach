@@ -5,6 +5,7 @@ export * from "./waists.repository";
 export * from "./meals.repository";
 export * from "./supplements.repository";
 export * from "./waterLogs.repository";
+export * from "./timelineCompletions.repository";
 export * from "./workouts.repository";
 export * from "./sleepLogs.repository";
 export * from "./motivations.repository";

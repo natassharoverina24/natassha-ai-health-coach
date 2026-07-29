@@ -86,6 +86,12 @@ service cloud.firestore {
       allow update: if ownsUpdatedDoc();
     }
 
+    match /timeline_completions/{docId} {
+      allow read, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
+    }
+
     match /workouts/{docId} {
       allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();

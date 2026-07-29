@@ -121,6 +121,22 @@ export interface WaterLogEntry extends BaseDocument {
 }
 
 // -----------------------------------------------------------------------------
+// timeline_completions
+// -----------------------------------------------------------------------------
+
+/**
+ * Manual completion for a non-loggable timeline item. Meal, water, and
+ * workout completion must continue to come from their dedicated log
+ * collections and must never be duplicated here.
+ */
+export interface TimelineCompletionEntry extends BaseDocument {
+  userId: string;
+  date: ISODateString;
+  itemId: string;
+  completedAt: ISODateString;
+}
+
+// -----------------------------------------------------------------------------
 // workouts
 // -----------------------------------------------------------------------------
 
@@ -301,6 +317,7 @@ export const COLLECTIONS = {
   supplements: "supplements",
   supplementLogs: "supplement_logs",
   waterLogs: "water_logs",
+  timelineCompletions: "timeline_completions",
   workouts: "workouts",
   sleepLogs: "sleep_logs",
   motivations: "motivations",

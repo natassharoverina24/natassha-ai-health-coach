@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import DashboardPage from "@/app/(app)/dashboard/page";
@@ -7,12 +7,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTodayCoachPlan } from "@/hooks";
 import type { TodayCoachPlan } from "@/lib/coach-plan";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
+import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repository";
 import type { CoachDecision } from "@/lib/engines/decisionEngine";
 import {
   generateDailyPlan,
   generateMealPlan,
   type PlannerUserContext,
 } from "@/lib/planner";
+import { reconcileTimelineStatus } from "@/lib/coach-plan/reconcileTimelineStatus";
 
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: jest.fn(),
@@ -22,6 +24,9 @@ jest.mock("@/hooks", () => ({
 }));
 jest.mock("@/lib/db/waterLogs.repository", () => ({
   waterLogsRepository: { create: jest.fn() },
+}));
+jest.mock("@/lib/db/timelineCompletions.repository", () => ({
+  timelineCompletionsRepository: { markCompleted: jest.fn() },
 }));
 
 const decision: CoachDecision = {
@@ -65,6 +70,18 @@ function makePlan(status: TodayCoachPlan["status"] = "ready"): TodayCoachPlan {
       { ...meal, sourceIds: [`planner.meal.${slot}`] },
     ]),
   ) as TodayCoachPlan["meals"];
+  const timeline = reconcileTimelineStatus({
+    date: context.today,
+    currentDate: context.today,
+    dailyPlan: daily,
+    meals: tracedMeals,
+    evidence: {
+      mealLogs: [],
+      waterLogs: [],
+      workoutLogs: [],
+      manualCompletions: [],
+    },
+  });
 
   return {
     generatedAt: decision.generatedAt,
@@ -98,11 +115,7 @@ function makePlan(status: TodayCoachPlan["status"] = "ready"): TodayCoachPlan {
       },
       sourceIds: ["behavior.consistency_reinforcement"],
     },
-    timeline: Object.entries(daily.schedule).map(([kind, slot]) => ({
-      kind: kind as TodayCoachPlan["timeline"][number]["kind"],
-      ...slot,
-      sourceIds: [`planner.daily.schedule.${kind}`],
-    })),
+    timeline,
     meals: tracedMeals,
     metrics: {
       value: daily.targets,
@@ -126,6 +139,12 @@ function makePlan(status: TodayCoachPlan["status"] = "ready"): TodayCoachPlan {
       emergencyAdjustment: "unavailable",
       adaptiveAdjustments: "not-applicable",
       weeklyContext: "unavailable",
+      timelineStatus: {
+        mealLogs: "available",
+        waterLogs: "available",
+        workoutLogs: "available",
+        manualCompletions: "available",
+      },
     },
     warnings:
       status === "partial"
@@ -159,6 +178,9 @@ beforeEach(() => {
   (waterLogsRepository.create as jest.Mock).mockReset().mockResolvedValue({
     id: "water-1",
   });
+  (timelineCompletionsRepository.markCompleted as jest.Mock)
+    .mockReset()
+    .mockResolvedValue("completion-1");
   refresh.mockClear();
 });
 
@@ -173,12 +195,12 @@ describe("Today dashboard", () => {
     expect(
       screen.getAllByText("Use the retained protein focus."),
     ).toHaveLength(3);
-    expect(screen.getByRole("heading", { name: "Today's Focus" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Today’s Focus" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Biggest Risk" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Today's Win" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Today’s Win" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Timeline" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Meal summary" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Today's metrics" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Today’s metrics" })).toBeInTheDocument();
     expect(screen.getByText("Remember the retained motivation.")).toBeInTheDocument();
     expect(screen.getAllByText(/g protein$/)).toHaveLength(4);
   });
@@ -194,14 +216,25 @@ describe("Today dashboard", () => {
 
     render(<TodayDashboard />);
 
-    expect(screen.getByText(/today's core plan is ready/i)).toBeInTheDocument();
+    expect(screen.getByText(/today’s core plan is ready/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Timeline" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Meal summary" })).toBeInTheDocument();
   });
 
   it("logs water and reflects the update without exposing technical errors", async () => {
     const user = userEvent.setup();
-    render(<TodayDashboard />);
+    const initialPlan = makePlan();
+    (useTodayCoachPlan as jest.Mock).mockReturnValue({
+      plan: initialPlan,
+      loading: false,
+      refreshing: false,
+      error: null,
+      refresh,
+    });
+    const { rerender } = render(<TodayDashboard />);
+    const waterAction = initialPlan.timeline.find(
+      (item) => item.kind === "waterReminder",
+    )!.action;
 
     await user.click(screen.getByRole("button", { name: "Add 250 ml water" }));
 
@@ -218,7 +251,73 @@ describe("Today dashboard", () => {
     expect(screen.getByText("Logged from quick actions: 250 ml.")).toBeInTheDocument();
     expect(screen.getByText(/water added with quick log this session: 250 ml/i)).toBeInTheDocument();
     expect(refresh).toHaveBeenCalledTimes(1);
+
+    const refreshedPlan = makePlan();
+    refreshedPlan.timeline = reconcileTimelineStatus({
+      date: context.today,
+      currentDate: context.today,
+      dailyPlan: generateDailyPlan(decision, context),
+      meals: refreshedPlan.meals,
+      evidence: {
+        mealLogs: [],
+        waterLogs: [{ id: "water-1" }],
+        workoutLogs: [],
+        manualCompletions: [],
+      },
+    });
+    (useTodayCoachPlan as jest.Mock).mockReturnValue({
+      plan: refreshedPlan,
+      loading: false,
+      refreshing: false,
+      error: null,
+      refresh,
+    });
+    rerender(<TodayDashboard />);
+    const hydrationItem = screen.getByText(waterAction).closest("li");
+    expect(hydrationItem).not.toBeNull();
+    expect(
+      within(hydrationItem!).getByLabelText("Status: completed"),
+    ).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent(/firebase|stack trace|index url/i);
+  });
+
+  it("persists completion only for a manual non-log timeline item", async () => {
+    const user = userEvent.setup();
+    const plan = makePlan();
+    plan.timeline = [
+      {
+        ...plan.timeline[0],
+        id: `${plan.date}:sleepPreparation`,
+        kind: "sleepPreparation",
+        action: "Prepare for sleep",
+        reason: "Uses an existing scheduled time.",
+        completionSource: "manual",
+        manualCompletionAllowed: true,
+      },
+      ...plan.timeline.slice(1),
+    ];
+    (useTodayCoachPlan as jest.Mock).mockReturnValue({
+      plan,
+      loading: false,
+      refreshing: false,
+      error: null,
+      refresh,
+    });
+    render(<TodayDashboard />);
+
+    await user.click(screen.getByRole("button", { name: "Mark complete" }));
+
+    expect(
+      timelineCompletionsRepository.markCompleted,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        date: plan.date,
+        itemId: `${plan.date}:sleepPreparation`,
+        completedAt: expect.any(String),
+      }),
+    );
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("shows a friendly water error without refreshing or exposing technical details", async () => {
