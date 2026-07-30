@@ -16,9 +16,13 @@ jest.mock("@/hooks", () => ({
   useFirestoreCollection: jest.fn(),
   useFirestoreDoc: jest.fn(),
 }));
-jest.mock("@/lib/ai/manualNutritionEstimate", () => ({
-  requestManualNutritionEstimate: jest.fn(),
-}));
+jest.mock("@/lib/ai/manualNutritionEstimate", () => {
+  const actual = jest.requireActual("@/lib/ai/manualNutritionEstimate");
+  return {
+    ...actual,
+    requestManualNutritionEstimate: jest.fn(),
+  };
+});
 jest.mock("@/lib/coach-plan/cache", () => ({
   invalidateTodayCoachPlanCache: jest.fn(),
 }));
@@ -81,6 +85,7 @@ describe("/meal manual nutrition confirmation", () => {
 
   beforeEach(() => {
     savedMeals.splice(1);
+    (requestManualNutritionEstimate as jest.Mock).mockClear();
     (useAuth as jest.Mock).mockReturnValue({
       user: { uid: "user-1" },
       profile: { lunchProvidedByOffice: false },
@@ -123,6 +128,12 @@ describe("/meal manual nutrition confirmation", () => {
         };
         savedMeals.push(saved);
         return "soto";
+      },
+    );
+    (mealsRepository.update as jest.Mock).mockImplementation(
+      async (id: string, input: Partial<MealEntry>) => {
+        const saved = savedMeals.find((meal) => meal.id === id);
+        if (saved) Object.assign(saved, input);
       },
     );
     (invalidateTodayCoachPlanCache as jest.Mock).mockReset();
@@ -177,6 +188,68 @@ describe("/meal manual nutrition confirmation", () => {
     view.unmount();
     render(<MealPage />);
     expect(screen.getByText("Soto")).toBeInTheDocument();
+    expect(screen.getAllByText(/550 kcal/).length).toBeGreaterThan(0);
+  });
+
+  it("repairs an unresolved existing item, updates totals, and keeps the confirmed values", async () => {
+    savedMeals.push({
+      ...rice,
+      id: "soto-zero",
+      name: "Soto",
+      quantity: "1 mangkok",
+      macros: {
+        calories: 0,
+        proteinG: 0,
+        carbsG: 0,
+        fatG: 0,
+        fiberG: 0,
+      },
+    });
+    const user = userEvent.setup();
+    const view = render(<MealPage />);
+
+    expect(
+      screen.getByText(/1 item needs confirmed nutrition/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/200 kcal/).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Edit Soto" }));
+
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(requestManualNutritionEstimate).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Estimate with AI" }),
+    );
+    expect(requestManualNutritionEstimate).toHaveBeenCalledTimes(1);
+
+    const calories = screen.getByRole("spinbutton", { name: "Calories" });
+    await user.clear(calories);
+    await user.type(calories, "350");
+    await user.click(screen.getByRole("button", { name: "Confirm nutrition" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(mealsRepository.update).toHaveBeenCalledWith(
+        "soto-zero",
+        expect.objectContaining({
+          macros: expect.objectContaining({
+            calories: 350,
+            proteinG: 22,
+            carbsG: 35,
+            fatG: 10,
+          }),
+          nutritionConfirmation: expect.objectContaining({
+            status: "confirmed",
+            userConfirmed: true,
+          }),
+        }),
+      ),
+    );
+    expect(invalidateTodayCoachPlanCache).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByText(/550 kcal/).length).toBeGreaterThan(0);
+
+    view.unmount();
+    render(<MealPage />);
+    expect(screen.queryByText(/needs confirmed nutrition/i)).not.toBeInTheDocument();
     expect(screen.getAllByText(/550 kcal/).length).toBeGreaterThan(0);
   });
 });

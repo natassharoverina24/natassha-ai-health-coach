@@ -456,8 +456,10 @@ export default function MealPage() {
               fatG: editingMeal.macros.fatG,
               fiberG: editingMeal.macros.fiberG,
               note: editingMeal.note,
+              nutritionConfirmation: editingMeal.nutritionConfirmation,
             }}
             submitLabel="Save changes"
+            onEstimate={requestManualNutritionEstimate}
             onSubmit={handleUpdateMeal}
             onCancel={() => setEditingMeal(null)}
           />
