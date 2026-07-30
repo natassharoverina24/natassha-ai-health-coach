@@ -18,6 +18,8 @@ import {
 import type { ReactNode } from "react";
 
 import {
+  completeGoogleRedirectSignIn,
+  GOOGLE_SIGN_IN_FRIENDLY_ERROR,
   onAuthStateChanged,
   signInWithGoogle as firebaseSignInWithGoogle,
   signOut as firebaseSignOut,
@@ -37,6 +39,10 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const ACCOUNT_LOAD_FRIENDLY_ERROR =
+  "Your account could not be loaded. Please try again.";
+const SIGN_OUT_FRIENDLY_ERROR =
+  "Sign-out could not be completed. Please try again.";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -45,9 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(async (firebaseUser) => {
+    let active = true;
+    let unsubscribe: () => void = () => undefined;
+
+    const handleAuthState = async (firebaseUser: User | null) => {
+      if (!active) return;
       setUser(firebaseUser);
-      setError(null);
 
       if (!firebaseUser) {
         setProfile(null);
@@ -66,14 +75,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           onboardingCompleted: false,
         });
         setProfile(ensured);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load profile.");
+        setError(null);
+      } catch {
+        setError(ACCOUNT_LOAD_FRIENDLY_ERROR);
       } finally {
         setLoading(false);
       }
-    });
+    };
 
-    return unsubscribe;
+    void completeGoogleRedirectSignIn()
+      .catch(() => {
+        if (active) setError(GOOGLE_SIGN_IN_FRIENDLY_ERROR);
+      })
+      .finally(() => {
+        if (active) unsubscribe = onAuthStateChanged(handleAuthState);
+      });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   // Keep the profile live once we know the uid, so edits from Settings
@@ -85,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (updated) => {
         if (updated) setProfile(updated);
       },
-      (err) => setError(err.message),
+      () => setError(ACCOUNT_LOAD_FRIENDLY_ERROR),
     );
     return unsubscribe;
   }, [user]);
@@ -94,9 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       await firebaseSignInWithGoogle();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign-in failed.");
-      throw err;
+    } catch {
+      setError(GOOGLE_SIGN_IN_FRIENDLY_ERROR);
     }
   }, []);
 
@@ -104,9 +124,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       await firebaseSignOut();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign-out failed.");
-      throw err;
+    } catch {
+      setError(SIGN_OUT_FRIENDLY_ERROR);
     }
   }, []);
 

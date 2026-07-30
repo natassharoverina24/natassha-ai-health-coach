@@ -77,7 +77,10 @@ values are intentionally client-visible; security rules enforce data access.
 
 1. Create the Firebase project and web app.
 2. Enable Google Authentication.
-3. Add the deployment domain under Authentication **Authorized domains**.
+3. Add the production deployment domain
+   `natassha-ai-health-coach-blush.vercel.app` under Authentication
+   **Settings > Authorized domains**. This Firebase Console setting is required
+   for both desktop popup and mobile redirect sign-in.
 4. Create Firestore in production mode. Firebase Storage is not required.
 5. Configure the five required Firebase variables in the host and GitHub
    Actions.
