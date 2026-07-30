@@ -2,10 +2,8 @@ import {
   reconcileTimelineStatus,
   type TimelineReconciliationEvidence,
 } from "@/lib/coach-plan/reconcileTimelineStatus";
-import type {
-  TodayCoachMeals,
-  TodayCoachTimelineStatus,
-} from "@/lib/coach-plan/types";
+import { buildMealGuidance } from "@/lib/coach-plan/buildMealGuidance";
+import type { TodayCoachTimelineStatus } from "@/lib/coach-plan/types";
 import type { CoachDecision } from "@/lib/engines/decisionEngine";
 import {
   generateDailyPlan,
@@ -37,12 +35,14 @@ const context: PlannerUserContext = {
 
 const dailyPlan = generateDailyPlan(decision, context);
 const rawMeals = generateMealPlan(decision, context);
-const meals = Object.fromEntries(
-  Object.entries(rawMeals).map(([slot, meal]) => [
-    slot,
-    { ...meal, sourceIds: [`planner.meal.${slot}`] },
-  ]),
-) as TodayCoachMeals;
+const meals = buildMealGuidance({
+  decision,
+  context,
+  dailyPlan,
+  mealPlan: rawMeals,
+  mealLogs: [],
+  officeLunchPlan: null,
+});
 
 const emptyEvidence: TimelineReconciliationEvidence = {
   mealLogs: [],

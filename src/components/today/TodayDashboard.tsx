@@ -18,12 +18,16 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodayCoachPlan } from "@/hooks";
 import type {
+  MealAlternative,
   TodayCoachPlan,
   TraceableValue,
 } from "@/lib/coach-plan";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repository";
-import type { InsightSummary } from "@/lib/planner";
+import type {
+  InsightSummary,
+  OfficeLunchRecommendation,
+} from "@/lib/planner";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -388,28 +392,89 @@ function TodayMealSummary({ plan }: { plan: TodayCoachPlan }) {
       <section aria-labelledby="today-meals-heading">
         <h2 id="today-meals-heading" className="flex items-center gap-2 text-base font-semibold text-ink">
           <UtensilsCrossed size={18} className="text-rose-strong" />
-          Meal summary
+          Nutrition guidance
         </h2>
-        <ul className="mt-3 grid gap-2">
+        <ul className="mt-3 grid gap-3">
           {Object.values(plan.meals).map((meal) => (
-            <li key={meal.slot} className="rounded-control border border-ink/8 px-3 py-2">
+            <li key={meal.slot} className="rounded-control border border-ink/8 px-3 py-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold capitalize text-rose-strong">
-                    {meal.slot}
+                    {meal.slot} · {meal.scheduledTime}
                   </p>
-                  <p className="truncate text-sm font-semibold text-ink">
-                    {meal.template.name}
+                  <p className="text-sm font-semibold text-ink">
+                    {meal.recommendation.name}
                   </p>
-                  <p className="text-xs text-ink-muted">{meal.template.serving}</p>
+                  <p className="text-xs text-ink-muted">
+                    {meal.recommendation.servingText}
+                  </p>
                 </div>
                 <p className="shrink-0 text-right text-xs text-ink-muted">
-                  {meal.template.calories} kcal
+                  {meal.nutrition.caloriesKcal} kcal
                   <br />
-                  {meal.template.proteinG} g protein
+                  P {meal.nutrition.proteinG} g · C{" "}
+                  {meal.nutrition.carbohydrateG ?? "—"} g · F{" "}
+                  {meal.nutrition.fatG ?? "—"} g
                 </p>
               </div>
-              <p className="mt-1 text-xs text-ink-muted">{meal.reason}</p>
+              <ul className="mt-2 grid gap-1 text-xs text-ink-muted">
+                {meal.why.map((reason: string) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+              {meal.confirmedConsumption && (
+                <p className="mt-2 text-xs text-ink">
+                  Confirmed logs: {meal.confirmedConsumption.entryCount} ·{" "}
+                  {meal.confirmedConsumption.nutrition.caloriesKcal} kcal ·{" "}
+                  {meal.confirmedConsumption.nutrition.proteinG} g protein
+                </p>
+              )}
+              <p className="mt-2 text-xs font-medium text-ink">
+                Remaining after {meal.slot}:{" "}
+                {meal.remainingAfterMeal.caloriesKcal} kcal ·{" "}
+                {meal.remainingAfterMeal.proteinG} g protein
+              </p>
+              {meal.nextMealImpact && (
+                <p className="mt-1 text-xs text-ink-muted">
+                  {meal.nextMealImpact}
+                </p>
+              )}
+              {meal.alternatives.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs font-semibold text-ink">Approved alternatives</p>
+                  <ul className="mt-1 grid gap-1 text-xs text-ink-muted">
+                    {meal.alternatives.map((alternative: MealAlternative) => (
+                      <li key={alternative.templateId}>
+                        {alternative.name} · {alternative.servingText} ·{" "}
+                        {alternative.nutrition.caloriesKcal} kcal ·{" "}
+                        {alternative.nutrition.proteinG} g protein
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {meal.officeLunchAdjustment && (
+                <div className="mt-2 rounded-control bg-sky-soft px-2 py-2">
+                  <p className="text-xs font-semibold text-ink">
+                    Office lunch adjustment
+                  </p>
+                  {meal.officeLunchAdjustment.plan.applicable ? (
+                    <ul className="mt-1 grid gap-1 text-xs text-ink-muted">
+                      {meal.officeLunchAdjustment.plan.recommendations.map(
+                        (item: OfficeLunchRecommendation) => (
+                          <li key={item.itemKey}>
+                            {item.action}: {item.label} · {item.serving}
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  ) : (
+                    <p className="mt-1 text-xs text-ink-muted">
+                      {meal.officeLunchAdjustment.plan.reason}
+                    </p>
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>

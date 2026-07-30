@@ -4,6 +4,7 @@ import {
 } from "@/lib/ai/contextBuilder";
 import {
   buildTodayCoachPlan,
+  type MealAlternative,
   type TodayCoachPlanOptions,
 } from "@/lib/coach-plan";
 import type { CoachDecision } from "@/lib/engines/decisionEngine";
@@ -201,6 +202,9 @@ describe("buildTodayCoachPlan", () => {
       "snack",
       "dinner",
     ]);
+    expect(result.meals.lunch.officeLunchAdjustment?.plan).toEqual(
+      result.officeLunch?.value,
+    );
   });
 
   it("is deterministic for the same decision, context, options, and time", async () => {
@@ -226,9 +230,24 @@ describe("buildTodayCoachPlan", () => {
     for (const slot of ["breakfast", "lunch", "snack", "dinner"] as const) {
       expect({
         slot: result.meals[slot].slot,
-        template: result.meals[slot].template,
-        reason: result.meals[slot].reason,
-      }).toEqual(expectedMeals[slot]);
+        recommendation: result.meals[slot].recommendation,
+        nutrition: result.meals[slot].nutrition,
+        reason: result.meals[slot].why[0],
+      }).toEqual({
+        slot,
+        recommendation: {
+          templateId: expectedMeals[slot].template.id,
+          name: expectedMeals[slot].template.name,
+          servingText: expectedMeals[slot].template.serving,
+        },
+        nutrition: {
+          caloriesKcal: expectedMeals[slot].template.calories,
+          proteinG: expectedMeals[slot].template.proteinG,
+          carbohydrateG: expectedMeals[slot].template.carbsG,
+          fatG: expectedMeals[slot].template.fatG,
+        },
+        reason: expectedMeals[slot].reason,
+      });
       expect(result.meals[slot].sourceIds).toContain(proteinInsight.id);
     }
     expect(result.metrics.value).toEqual(expectedDaily.targets);
@@ -272,6 +291,40 @@ describe("buildTodayCoachPlan", () => {
     expect(result.warnings.every((warning) => warning.message.length > 0)).toBe(
       true,
     );
+  });
+
+  it("uses confirmed meal-log macros in the remaining nutrition guidance", async () => {
+    (mealsRepository.listForUserByDate as jest.Mock).mockResolvedValue([
+      {
+        id: "confirmed-breakfast",
+        type: "breakfast",
+        macros: {
+          calories: 250,
+          proteinG: 20,
+          carbsG: 30,
+          fatG: 8,
+          fiberG: 3,
+        },
+      },
+    ]);
+
+    const result = await buildTodayCoachPlan("user-1");
+
+    expect(result.meals.breakfast.confirmedConsumption).toEqual(
+      expect.objectContaining({
+        entryCount: 1,
+        nutrition: expect.objectContaining({
+          caloriesKcal: 250,
+          proteinG: 20,
+        }),
+        sourceIds: ["meal-log:confirmed-breakfast"],
+      }),
+    );
+    expect(result.meals.breakfast.remainingAfterMeal).toEqual({
+      caloriesKcal: context.calorieGoal - 250,
+      proteinG: context.proteinGoalG - 20,
+    });
+    expect(result.meals.lunch.nextMealImpact).toContain("kcal");
   });
 
   it("keeps the core plan when optional office-lunch input is invalid", async () => {
@@ -367,7 +420,22 @@ describe("buildTodayCoachPlan", () => {
     expect(result.briefing.retainedInsights).toEqual(decision.insights);
     expect(result.focus?.value.id).toBe(proteinInsight.id);
     for (const meal of Object.values(result.meals)) {
-      expect(meal.template).toEqual(approvedTemplates.get(meal.template.id));
+      const approved = approvedTemplates.get(meal.recommendation.templateId);
+      expect(approved).toBeDefined();
+      expect(meal.recommendation).toEqual({
+        templateId: approved?.id,
+        name: approved?.name,
+        servingText: approved?.serving,
+      });
+      expect(meal.nutrition).toEqual({
+        caloriesKcal: approved?.calories,
+        proteinG: approved?.proteinG,
+        carbohydrateG: approved?.carbsG,
+        fatG: approved?.fatG,
+      });
+      expect(meal.alternatives.every((alternative: MealAlternative) =>
+        approvedTemplates.has(alternative.templateId),
+      )).toBe(true);
     }
     expect(JSON.stringify(result)).not.toMatch(
       /diagnos|medical advice|thyroid diet|thyroid restriction|supplement|medication|gofood/i,

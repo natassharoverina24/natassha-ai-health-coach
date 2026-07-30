@@ -105,14 +105,14 @@ function mealImpacts(
   return [
     {
       metric: "calories",
-      plannedValue: meal.template.calories,
+      plannedValue: meal.nutrition.caloriesKcal,
       dailyTarget: dailyPlan.targets.calories,
       unit: "kcal",
       sourceIds: [...meal.sourceIds, "planner.daily.targets"],
     },
     {
       metric: "proteinG",
-      plannedValue: meal.template.proteinG,
+      plannedValue: meal.nutrition.proteinG,
       dailyTarget: dailyPlan.targets.proteinG,
       unit: "g",
       sourceIds: [...meal.sourceIds, "planner.daily.targets"],
@@ -168,8 +168,8 @@ function actionAndReason(
   ) {
     const meal = meals[kind];
     return {
-      action: meal.template.name,
-      reason: meal.reason,
+      action: meal.recommendation.name,
+      reason: meal.why[0],
       sourceIds: [...meal.sourceIds],
     };
   }

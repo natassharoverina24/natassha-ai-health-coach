@@ -15,15 +15,10 @@ import {
   generateOfficeLunchPlan,
   generateWeeklyMealPrep,
   type InsightSummary,
-  type MealPlan,
-  type MealSlot,
 } from "@/lib/planner";
 import {
-  TODAY_COACH_MEAL_SLOTS,
   type CoachPlanAvailabilityStatus,
   type TodayCoachDataAvailability,
-  type TodayCoachMealGuidance,
-  type TodayCoachMeals,
   type TodayCoachPlan,
   type TodayCoachPlanOptions,
   type TodayCoachPlanWarning,
@@ -35,41 +30,12 @@ import {
   sourceAvailability,
   type DataSourceAvailability,
 } from "./availability";
-
-const MEAL_RELEVANT_INSIGHT_IDS = new Set([
-  "migraine.active_symptom_care",
-  "menstrual.pms_hunger_support",
-  "nutrition.protein_first",
-]);
+import { buildMealGuidance } from "./buildMealGuidance";
 
 function tracedInsight(
   value: InsightSummary | null,
 ): TraceableValue<InsightSummary> | null {
   return value ? { value, sourceIds: [value.id] } : null;
-}
-
-function retainedMealSourceIds(decision: CoachDecision, slot: MealSlot): string[] {
-  return [
-    `planner.meal.${slot}`,
-    ...decision.insights
-      .map((insight) => insight.id)
-      .filter((id) => MEAL_RELEVANT_INSIGHT_IDS.has(id)),
-  ];
-}
-
-function buildMeals(
-  decision: CoachDecision,
-  mealPlan: MealPlan,
-): TodayCoachMeals {
-  return Object.fromEntries(
-    TODAY_COACH_MEAL_SLOTS.map((slot) => [
-      slot,
-      {
-        ...mealPlan[slot],
-        sourceIds: retainedMealSourceIds(decision, slot),
-      } satisfies TodayCoachMealGuidance,
-    ]),
-  ) as unknown as TodayCoachMeals;
 }
 
 function availabilityFromResult(
@@ -229,7 +195,6 @@ export async function buildTodayCoachPlan(
   const { decision, sources } = decisionResult;
   const dailyPlan = generateDailyPlan(decision, context);
   const mealPlan = generateMealPlan(decision, context);
-  const meals = buildMeals(decision, mealPlan);
 
   const [mealLogsResult, waterLogsResult, workoutLogsResult, manualCompletionsResult] =
     await Promise.all([
@@ -268,19 +233,6 @@ export async function buildTodayCoachPlan(
     manualCompletionsResult.status === "unavailable"
       ? null
       : manualCompletionsResult.data;
-  const timeline = reconcileTimelineStatus({
-    date: context.today,
-    currentDate: context.today,
-    dailyPlan,
-    meals,
-    evidence: {
-      mealLogs,
-      waterLogs,
-      workoutLogs,
-      manualCompletions,
-    },
-  });
-
   let officeLunch: ReturnType<typeof generateOfficeLunchPlan> | null = null;
   let officeLunchAvailability: CoachPlanAvailabilityStatus = "unavailable";
   if (options.remainingNutritionBudget) {
@@ -295,6 +247,26 @@ export async function buildTodayCoachPlan(
       officeLunchAvailability = "invalid-input";
     }
   }
+  const meals = buildMealGuidance({
+    decision,
+    context,
+    dailyPlan,
+    mealPlan,
+    mealLogs,
+    officeLunchPlan: officeLunch,
+  });
+  const timeline = reconcileTimelineStatus({
+    date: context.today,
+    currentDate: context.today,
+    dailyPlan,
+    meals,
+    evidence: {
+      mealLogs,
+      waterLogs,
+      workoutLogs,
+      manualCompletions,
+    },
+  });
   const weeklyContext =
     options.officeLunchByDate && options.ingredientCatalogue
       ? generateWeeklyMealPrep({

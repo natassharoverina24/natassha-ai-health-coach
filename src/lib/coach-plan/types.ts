@@ -6,7 +6,6 @@ import type {
   EmergencyDisruption,
   EmergencyPlanResult,
   InsightSummary,
-  MealRecommendation,
   MealSlot,
   OfficeLunchPlan,
   RemainingNutritionBudget,
@@ -78,7 +77,50 @@ export interface TodayCoachTimelineDataAvailability {
   manualCompletions: DataSourceStatus;
 }
 
-export interface TodayCoachMealGuidance extends MealRecommendation {
+export interface MealGuidanceNutrition {
+  caloriesKcal: number;
+  proteinG: number;
+  carbohydrateG?: number;
+  fatG?: number;
+}
+
+export interface MealAlternative {
+  templateId: string;
+  name: string;
+  servingText: string;
+  nutrition: MealGuidanceNutrition;
+  sourceIds: string[];
+}
+
+export interface ConfirmedMealConsumption {
+  entryCount: number;
+  nutrition: MealGuidanceNutrition;
+  sourceIds: string[];
+}
+
+export interface OfficeLunchGuidance {
+  plan: OfficeLunchPlan;
+  sourceIds: string[];
+}
+
+export interface TodayCoachMealGuidance {
+  slot: MealSlot;
+  scheduledTime: string;
+  recommendation: {
+    templateId: string;
+    name: string;
+    servingText: string;
+  };
+  nutrition: MealGuidanceNutrition;
+  why: string[];
+  alternatives: MealAlternative[];
+  confirmedConsumption: ConfirmedMealConsumption | null;
+  remainingAfterMeal: {
+    caloriesKcal: number;
+    proteinG: number;
+  };
+  nextMealImpact: string | null;
+  officeLunchAdjustment: OfficeLunchGuidance | null;
   sourceIds: string[];
 }
 

@@ -6,12 +6,14 @@ import { TodayDashboard } from "@/components/today";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodayCoachPlan } from "@/hooks";
 import type { TodayCoachPlan } from "@/lib/coach-plan";
+import { buildMealGuidance } from "@/lib/coach-plan/buildMealGuidance";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repository";
 import type { CoachDecision } from "@/lib/engines/decisionEngine";
 import {
   generateDailyPlan,
   generateMealPlan,
+  generateOfficeLunchPlan,
   type PlannerUserContext,
 } from "@/lib/planner";
 import { reconcileTimelineStatus } from "@/lib/coach-plan/reconcileTimelineStatus";
@@ -64,12 +66,14 @@ const context: PlannerUserContext = {
 function makePlan(status: TodayCoachPlan["status"] = "ready"): TodayCoachPlan {
   const daily = generateDailyPlan(decision, context);
   const mealPlan = generateMealPlan(decision, context);
-  const tracedMeals = Object.fromEntries(
-    Object.entries(mealPlan).map(([slot, meal]) => [
-      slot,
-      { ...meal, sourceIds: [`planner.meal.${slot}`] },
-    ]),
-  ) as TodayCoachPlan["meals"];
+  const tracedMeals = buildMealGuidance({
+    decision,
+    context,
+    dailyPlan: daily,
+    mealPlan,
+    mealLogs: [],
+    officeLunchPlan: null,
+  });
   const timeline = reconcileTimelineStatus({
     date: context.today,
     currentDate: context.today,
@@ -213,10 +217,11 @@ describe("Today dashboard", () => {
     expect(screen.getByRole("heading", { name: "Biggest Risk" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Today’s Win" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Timeline" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Meal summary" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Nutrition guidance" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Today’s metrics" })).toBeInTheDocument();
     expect(screen.getByText("Remember the retained motivation.")).toBeInTheDocument();
-    expect(screen.getAllByText(/g protein$/)).toHaveLength(4);
+    expect(screen.getAllByText(/Remaining after/)).toHaveLength(4);
+    expect(screen.getAllByText("Approved alternatives")).toHaveLength(4);
   });
 
   it("keeps the complete core plan visible for partial status", () => {
@@ -232,7 +237,32 @@ describe("Today dashboard", () => {
 
     expect(screen.getByText(/today’s core plan is ready/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Timeline" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Meal summary" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Nutrition guidance" })).toBeInTheDocument();
+  });
+
+  it("renders Office Lunch guidance inside the lunch recommendation", () => {
+    const plan = makePlan();
+    const officeLunchPlan = generateOfficeLunchPlan(
+      decision,
+      { ...context, lunchProvidedByOffice: true },
+      { calories: 700, proteinG: 50 },
+    );
+    plan.meals.lunch.officeLunchAdjustment = {
+      plan: officeLunchPlan,
+      sourceIds: ["planner.office-lunch"],
+    };
+    (useTodayCoachPlan as jest.Mock).mockReturnValue({
+      plan,
+      loading: false,
+      refreshing: false,
+      error: null,
+      refresh,
+    });
+
+    render(<TodayDashboard />);
+
+    expect(screen.getByText("Office lunch adjustment")).toBeInTheDocument();
+    expect(screen.getByText(/Eat: Rice/)).toBeInTheDocument();
   });
 
   it("logs water and reflects the update without exposing technical errors", async () => {
