@@ -15,6 +15,7 @@ import type {
   NutritionEstimateConfidence,
 } from "@/lib/ai/manualNutritionEstimate";
 import { findApprovedNutritionEstimate } from "@/lib/ai/manualNutritionEstimate";
+import { buildNutritionEstimateMetadata } from "@/lib/ai/nutritionEstimateMetadata";
 
 export interface MealFormValues {
   clientRequestId?: string;
@@ -167,6 +168,19 @@ export function MealEntryForm({
   const [estimateUncertain, setEstimateUncertain] = useState(
     initialLocalEstimate?.uncertain ?? false,
   );
+  const [estimateMetadata, setEstimateMetadata] = useState(
+    initialLocalEstimate?.metadata ??
+      buildNutritionEstimateMetadata({
+        source:
+          initialValues?.nutritionConfirmation?.source ?? "manual-entry",
+        model: initialValues?.nutritionConfirmation?.model ?? null,
+        estimatedAt:
+          initialValues?.nutritionConfirmation?.estimatedAt ?? null,
+        confidence:
+          initialValues?.nutritionConfirmation?.estimateMetadata
+            ?.confidence ?? null,
+      }),
+  );
   const [nutritionConfirmed, setNutritionConfirmed] = useState(
     !requiresExplicitConfirmation,
   );
@@ -186,6 +200,9 @@ export function MealEntryForm({
     setEstimatedAt(null);
     setEstimateConfidence(null);
     setEstimateUncertain(false);
+    setEstimateMetadata(
+      buildNutritionEstimateMetadata({ source: "manual-entry" }),
+    );
     setNutritionConfirmed(false);
   };
 
@@ -233,6 +250,14 @@ export function MealEntryForm({
     setEstimatedAt(estimate.estimatedAt);
     setEstimateConfidence(estimate.confidence);
     setEstimateUncertain(estimate.uncertain);
+    setEstimateMetadata(
+      buildNutritionEstimateMetadata({
+        source: estimate.source,
+        model: estimate.model,
+        estimatedAt: estimate.estimatedAt,
+        confidence: estimate.confidence,
+      }),
+    );
     setEstimateStatus("review");
     setNutritionConfirmed(false);
   };
@@ -257,6 +282,9 @@ export function MealEntryForm({
         setEstimateSource("manual-entry");
         setEstimateProvider(null);
         setEstimateModel(null);
+        setEstimateMetadata(
+          buildNutritionEstimateMetadata({ source: "manual-entry" }),
+        );
         setError("Nutrition estimate unavailable");
         return;
       }
@@ -266,6 +294,9 @@ export function MealEntryForm({
       setEstimateSource("manual-entry");
       setEstimateProvider(null);
       setEstimateModel(null);
+      setEstimateMetadata(
+        buildNutritionEstimateMetadata({ source: "manual-entry" }),
+      );
       setError("Nutrition estimate unavailable");
     } finally {
       setSubmitting(false);
@@ -338,6 +369,12 @@ export function MealEntryForm({
               confirmedAt,
               provider: estimateProvider,
               model: estimateModel,
+              estimateMetadata: {
+                ...estimateMetadata,
+                model: estimateModel,
+                estimatedAt,
+                confidence: estimateConfidence,
+              },
             }
           : initialValues?.nutritionConfirmation,
       });
@@ -462,6 +499,11 @@ export function MealEntryForm({
                 setEstimateSource("manual-entry");
                 setEstimateProvider(null);
                 setEstimateModel(null);
+                setEstimateMetadata(
+                  buildNutritionEstimateMetadata({
+                    source: "manual-entry",
+                  }),
+                );
                 setError(null);
               }}
             >
@@ -482,6 +524,9 @@ export function MealEntryForm({
             <p className="font-semibold">
               Review and confirm nutrition before this food enters the meal
               total.
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">
+              {estimateMetadata.providerLabel}
             </p>
             <p className="mt-1 text-xs text-ink-muted">
               {estimateStatus === "manual"

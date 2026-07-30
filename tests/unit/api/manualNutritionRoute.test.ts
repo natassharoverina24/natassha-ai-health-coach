@@ -139,6 +139,13 @@ describe("POST /api/ai/meal-nutrition", () => {
         source: "gemini-estimate",
         provider: "gemini",
         model: DEFAULT_GEMINI_MEAL_NUTRITION_MODEL,
+        metadata: {
+          source: "gemini",
+          providerLabel: "Estimated with Gemini",
+          model: DEFAULT_GEMINI_MEAL_NUTRITION_MODEL,
+          estimatedAt: expect.any(String),
+          confidence: "low",
+        },
         uncertain: true,
         servingGrams: 350,
         macros: {
@@ -173,6 +180,10 @@ describe("POST /api/ai/meal-nutrition", () => {
     expect(body.estimate).toMatchObject({
       source: "groq-estimate",
       provider: "groq",
+      metadata: {
+        source: "groq",
+        providerLabel: "Estimated with Groq",
+      },
     });
   });
 
@@ -215,6 +226,10 @@ describe("POST /api/ai/meal-nutrition", () => {
     expect(body.estimate).toMatchObject({
       source: "openrouter-estimate",
       model: "openrouter/free",
+      metadata: {
+        source: "openrouter",
+        providerLabel: "Estimated with OpenRouter Free",
+      },
     });
   });
 

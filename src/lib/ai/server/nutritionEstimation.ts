@@ -386,15 +386,34 @@ export async function estimateNutritionWithFallback(
   }
   for (const provider of options.providers) {
     if (!provider.isConfigured()) continue;
+    logProviderEvent("attempted", provider.name);
     if (
       options.allowProviderRequest &&
       !options.allowProviderRequest(options.userId, provider.name)
     ) {
+      logProviderEvent("failed", provider.name, "quota-exhausted");
       continue;
     }
     const result = await provider.estimate(input);
-    if (result.status === "success") return result;
+    if (result.status === "success") {
+      logProviderEvent("succeeded", provider.name);
+      return result;
+    }
     if (result.status === "invalid-input") return result;
+    logProviderEvent("failed", provider.name, result.reason);
   }
   return { status: "unavailable" };
+}
+
+function logProviderEvent(
+  event: "attempted" | "succeeded" | "failed",
+  provider: NutritionEstimationProvider["name"],
+  errorCode?: NutritionProviderFailureReason,
+) {
+  if (process.env.NODE_ENV !== "development") return;
+  console.info("[nutrition-estimation]", {
+    event,
+    provider,
+    ...(errorCode ? { errorCode } : {}),
+  });
 }

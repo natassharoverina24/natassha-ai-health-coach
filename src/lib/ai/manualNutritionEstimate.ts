@@ -7,10 +7,12 @@ import {
 } from "@/lib/utils/nutritionEstimates";
 import type {
   MealEntry,
+  MealNutritionEstimateMetadata,
   MealNutritionEstimateSource,
   MealNutritionMacro,
   MealNutritionProvider,
 } from "@/types/firestore";
+import { buildNutritionEstimateMetadata } from "./nutritionEstimateMetadata";
 
 export type NutritionEstimateConfidence = "low" | "medium" | "high";
 
@@ -24,6 +26,7 @@ export interface ManualNutritionEstimate {
   confidence: NutritionEstimateConfidence;
   uncertain: boolean;
   estimatedAt: string;
+  metadata: MealNutritionEstimateMetadata;
 }
 
 export type ManualNutritionEstimateResult =
@@ -66,8 +69,9 @@ export function findApprovedNutritionEstimate(
       normalizeFoodName(entry.key) === normalized,
   );
   if (!match) return null;
+  const source = "local-approved" as const;
   return {
-    source: "local-approved",
+    source,
     provider: null,
     model: null,
     servingGrams: null,
@@ -83,6 +87,11 @@ export function findApprovedNutritionEstimate(
     confidence: "high",
     uncertain: false,
     estimatedAt,
+    metadata: buildNutritionEstimateMetadata({
+      source,
+      estimatedAt,
+      confidence: "high",
+    }),
   };
 }
 
@@ -109,10 +118,16 @@ export function findUserConfirmedNutritionEstimate(
       return rightDate.localeCompare(leftDate) || left.id.localeCompare(right.id);
     })[0];
   if (!match) return null;
+  const source = "user-confirmed-cache" as const;
+  const estimatedAt =
+    match.nutritionConfirmation?.estimatedAt ??
+    match.nutritionConfirmation?.confirmedAt ??
+    match.updatedAt;
+  const model = match.nutritionConfirmation?.model ?? null;
   return {
-    source: "user-confirmed-cache",
+    source,
     provider: match.nutritionConfirmation?.provider ?? null,
-    model: match.nutritionConfirmation?.model ?? null,
+    model,
     servingGrams:
       match.nutritionConfirmation?.servingGrams ?? null,
     macros: {
@@ -127,10 +142,13 @@ export function findUserConfirmedNutritionEstimate(
     ],
     confidence: "high",
     uncertain: false,
-    estimatedAt:
-      match.nutritionConfirmation?.estimatedAt ??
-      match.nutritionConfirmation?.confirmedAt ??
-      match.updatedAt,
+    estimatedAt,
+    metadata: buildNutritionEstimateMetadata({
+      source,
+      model,
+      estimatedAt,
+      confidence: "high",
+    }),
   };
 }
 
@@ -207,13 +225,18 @@ export function parseManualNutritionEstimate(
   ) {
     return null;
   }
-  return {
-    source: candidate.source as
+  const source = candidate.source as
       | "gemini-estimate"
       | "groq-estimate"
-      | "openrouter-estimate",
+      | "openrouter-estimate";
+  const model = candidate.model.trim();
+  const estimatedAt = candidate.estimatedAt;
+  const confidence =
+    candidate.confidence as NutritionEstimateConfidence;
+  return {
+    source,
     provider: candidate.provider as MealNutritionProvider,
-    model: candidate.model.trim(),
+    model,
     servingGrams: candidate.servingGrams,
     macros: {
       calories: macros.calories,
@@ -228,9 +251,15 @@ export function parseManualNutritionEstimate(
             : null,
     },
     assumptions: candidate.assumptions.map((item) => String(item).trim()),
-    confidence: candidate.confidence as NutritionEstimateConfidence,
+    confidence,
     uncertain: true,
-    estimatedAt: candidate.estimatedAt,
+    estimatedAt,
+    metadata: buildNutritionEstimateMetadata({
+      source,
+      model,
+      estimatedAt,
+      confidence,
+    }),
   };
 }
 

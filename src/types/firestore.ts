@@ -102,6 +102,22 @@ export type MealNutritionEstimateSource =
 
 export type MealNutritionProvider = "gemini" | "groq" | "openrouter";
 
+export type MealNutritionAuditSource =
+  | "local"
+  | "cache"
+  | "gemini"
+  | "groq"
+  | "openrouter"
+  | "manual";
+
+export interface MealNutritionEstimateMetadata {
+  source: MealNutritionAuditSource;
+  providerLabel: string;
+  model: string | null;
+  estimatedAt: ISODateString | null;
+  confidence: "low" | "medium" | "high" | null;
+}
+
 export interface MealNutritionConfirmation {
   status: "confirmed";
   source: MealNutritionEstimateSource;
@@ -112,6 +128,7 @@ export interface MealNutritionConfirmation {
   confirmedAt: ISODateString;
   provider?: MealNutritionProvider | null;
   model?: string | null;
+  estimateMetadata?: MealNutritionEstimateMetadata;
 }
 
 export interface MealEntry extends BaseDocument {

@@ -21,6 +21,13 @@ const geminiEstimate = {
   confidence: "low",
   uncertain: true,
   estimatedAt: "2026-07-30T08:00:00.000Z",
+  metadata: {
+    source: "gemini",
+    providerLabel: "Estimated with Gemini",
+    model: "gemini-3.5-flash-lite",
+    estimatedAt: "2026-07-30T08:00:00.000Z",
+    confidence: "low",
+  },
 };
 
 const confirmedSoto: MealEntry = {
@@ -83,6 +90,10 @@ describe("manual nutrition estimation", () => {
       status: "ready",
       estimate: {
         source: "local-approved",
+        metadata: {
+          source: "local",
+          providerLabel: "From local food database",
+        },
         macros: { calories: 200, proteinG: 4, carbsG: 44, fatG: 0.4 },
       },
     });
@@ -116,6 +127,10 @@ describe("manual nutrition estimation", () => {
       status: "ready",
       estimate: {
         source: "user-confirmed-cache",
+        metadata: {
+          source: "cache",
+          providerLabel: "From your saved food cache",
+        },
         macros: { calories: 350 },
       },
     });

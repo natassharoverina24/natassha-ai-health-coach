@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import type { ManualNutritionEstimate } from "@/lib/ai/manualNutritionEstimate";
+import { buildNutritionEstimateMetadata } from "@/lib/ai/nutritionEstimateMetadata";
 import {
   DEFAULT_GEMINI_NUTRITION_MODEL,
   DEFAULT_GROQ_NUTRITION_MODEL,
@@ -132,8 +133,10 @@ export async function POST(request: Request) {
     );
   }
 
+  const source = `${result.provider}-estimate` as const;
+  const estimatedAt = new Date().toISOString();
   const estimate: ManualNutritionEstimate = {
-    source: `${result.provider}-estimate`,
+    source,
     provider: result.provider,
     model: result.model,
     servingGrams: result.estimate.grams,
@@ -147,7 +150,13 @@ export async function POST(request: Request) {
     confidence: result.estimate.confidence,
     assumptions: [...result.estimate.assumptions],
     uncertain: true,
-    estimatedAt: new Date().toISOString(),
+    estimatedAt,
+    metadata: buildNutritionEstimateMetadata({
+      source,
+      model: result.model,
+      estimatedAt,
+      confidence: result.estimate.confidence,
+    }),
   };
   return NextResponse.json({ estimate });
 }

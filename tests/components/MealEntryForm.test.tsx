@@ -92,6 +92,9 @@ describe("MealEntryForm", () => {
 
     expect(screen.getByLabelText("Calories")).toHaveValue(200);
     expect(screen.getByLabelText("Protein")).toHaveValue(4);
+    expect(
+      screen.getByText("From local food database"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Approved local nutrition")).toBeInTheDocument();
     expect(onEstimate).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
@@ -142,6 +145,69 @@ describe("MealEntryForm", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
   });
 
+  it.each([
+    {
+      source: "user-confirmed-cache" as const,
+      provider: null,
+      model: null,
+      label: "From your saved food cache",
+    },
+    {
+      source: "groq-estimate" as const,
+      provider: "groq" as const,
+      model: "free-groq-model",
+      label: "Estimated with Groq",
+    },
+    {
+      source: "openrouter-estimate" as const,
+      provider: "openrouter" as const,
+      model: "openrouter/free",
+      label: "Estimated with OpenRouter Free",
+    },
+  ])("shows $label for a reviewed estimate", async ({
+    source,
+    provider,
+    model,
+    label,
+  }) => {
+    const user = userEvent.setup();
+    render(
+      <MealEntryForm
+        onEstimate={jest.fn().mockResolvedValue({
+          status: "ready",
+          estimate: {
+            source,
+            provider,
+            model,
+            servingGrams: 300,
+            macros: {
+              calories: 300,
+              proteinG: 15,
+              carbsG: 35,
+              fatG: 8,
+            },
+            assumptions: [],
+            confidence: "medium",
+            uncertain: source !== "user-confirmed-cache",
+            estimatedAt: "2026-07-30T08:00:00.000Z",
+          },
+        })}
+        onSubmit={jest.fn()}
+        onCancel={jest.fn()}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Food name"), "Soto");
+    await user.click(
+      screen.getByRole("button", { name: "Estimate nutrition" }),
+    );
+
+    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(
+      /api[_ -]?key|raw response|stack trace/i,
+    );
+  });
+
   it("allows manual nutrition confirmation when AI is not used", async () => {
     const user = userEvent.setup();
     const onSubmit = jest.fn().mockResolvedValue(undefined);
@@ -188,6 +254,10 @@ describe("MealEntryForm", () => {
         nutritionConfirmation: expect.objectContaining({
           source: "manual-entry",
           userConfirmed: true,
+          estimateMetadata: expect.objectContaining({
+            source: "manual",
+            providerLabel: "Entered manually",
+          }),
         }),
       }),
     );
@@ -243,6 +313,7 @@ describe("MealEntryForm", () => {
     expect(screen.getByLabelText("Calories")).toHaveValue(320);
     expect(screen.getByText("One medium bowl was assumed.")).toBeInTheDocument();
     expect(screen.getByText(/AI estimate: low confidence · uncertain/i)).toBeInTheDocument();
+    expect(screen.getByText("Estimated with Gemini")).toBeInTheDocument();
 
     await user.clear(screen.getByLabelText("Calories"));
     await user.type(screen.getByLabelText("Calories"), "350");
@@ -265,6 +336,10 @@ describe("MealEntryForm", () => {
           servingGrams: 350,
           provider: "gemini",
           model: "gemini-3.5-flash-lite",
+          estimateMetadata: expect.objectContaining({
+            source: "gemini",
+            providerLabel: "Estimated with Gemini",
+          }),
         }),
       }),
     );
@@ -289,6 +364,7 @@ describe("MealEntryForm", () => {
     expect(
       screen.getByText("Nutrition estimate unavailable"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Entered manually")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Confirm and save meal" }),
     ).toBeDisabled();

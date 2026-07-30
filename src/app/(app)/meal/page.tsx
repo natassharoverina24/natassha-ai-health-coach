@@ -49,6 +49,7 @@ import {
   requestManualNutritionEstimate,
   type ManualNutritionEstimateRequest,
 } from "@/lib/ai/manualNutritionEstimate";
+import { buildNutritionEstimateMetadata } from "@/lib/ai/nutritionEstimateMetadata";
 import { invalidateTodayCoachPlanCache } from "@/lib/coach-plan/cache";
 import type {
   MealEntry,
@@ -163,6 +164,9 @@ export default function MealPage() {
         assumptions: [],
         estimatedAt: null,
         confirmedAt: new Date().toISOString(),
+        estimateMetadata: buildNutritionEstimateMetadata({
+          source: "manual-entry",
+        }),
       };
     await mealsRepository.update(editingMeal.id, {
       type: values.type,
