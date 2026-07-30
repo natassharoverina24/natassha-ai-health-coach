@@ -7,6 +7,7 @@ import { mealsRepository } from "@/lib/db/meals.repository";
 import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repository";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { workoutsRepository } from "@/lib/db/workouts.repository";
+import { waistsRepository } from "@/lib/db/waists.repository";
 import {
   applyAdaptiveAdjustments,
   generateDailyPlan,
@@ -31,6 +32,7 @@ import {
   type DataSourceAvailability,
 } from "./availability";
 import { buildMealGuidance } from "./buildMealGuidance";
+import { buildMetricSummary } from "./buildMetricSummary";
 
 function tracedInsight(
   value: InsightSummary | null,
@@ -150,6 +152,7 @@ function warningsFor(
     ]
   > = [
     ["weights", dataAvailability.sources.weights],
+    ["waists", dataAvailability.sources.waists],
     ["meals", dataAvailability.sources.meals],
     ["water", dataAvailability.sources.water],
     ["workouts", dataAvailability.sources.workouts],
@@ -196,7 +199,13 @@ export async function buildTodayCoachPlan(
   const dailyPlan = generateDailyPlan(decision, context);
   const mealPlan = generateMealPlan(decision, context);
 
-  const [mealLogsResult, waterLogsResult, workoutLogsResult, manualCompletionsResult] =
+  const [
+    mealLogsResult,
+    waterLogsResult,
+    workoutLogsResult,
+    manualCompletionsResult,
+    waistsResult,
+  ] =
     await Promise.all([
       loadDataSource(
         () => mealsRepository.listForUserByDate(userId, context.today),
@@ -222,7 +231,10 @@ export async function buildTodayCoachPlan(
         [],
         { isEmpty: (items) => items.length === 0 },
       ),
-  ]);
+      loadDataSource(() => waistsRepository.listForUser(userId, 90), [], {
+        isEmpty: (items) => items.length === 0,
+      }),
+    ]);
   const mealLogs =
     mealLogsResult.status === "unavailable" ? null : mealLogsResult.data;
   const waterLogs =
@@ -307,6 +319,7 @@ export async function buildTodayCoachPlan(
       settings: sourceAvailability(sources.settings),
       currentDateTime: sourceAvailability(sources.currentDateTime),
       weights: sourceAvailability(sources.weights),
+      waists: sourceAvailability(waistsResult),
       meals: sourceAvailability(sources.meals),
       water: sourceAvailability(sources.water),
       workouts: sourceAvailability(sources.workouts),
@@ -344,10 +357,17 @@ export async function buildTodayCoachPlan(
     todaysWin: tracedInsight(dailyPlan.summary.todaysWin),
     timeline,
     meals,
-    metrics: {
-      value: { ...dailyPlan.targets },
-      sourceIds: ["planner.daily.targets", "planner-context"],
-    },
+    metrics: buildMetricSummary({
+      today: context.today,
+      targets: dailyPlan.targets,
+      profile: sources.profile,
+      weights: sources.weights,
+      waists: waistsResult,
+      meals: sources.meals,
+      water: sources.water,
+      workouts: sources.workouts,
+      sleep: sources.sleep,
+    }),
     officeLunch: officeLunch
       ? {
           value: officeLunch,

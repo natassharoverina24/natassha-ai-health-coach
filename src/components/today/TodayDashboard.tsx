@@ -18,7 +18,9 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodayCoachPlan } from "@/hooks";
 import type {
+  GoalMetricValue,
   MealAlternative,
+  MetricValue,
   TodayCoachPlan,
   TraceableValue,
 } from "@/lib/coach-plan";
@@ -490,34 +492,94 @@ function TodayMetrics({
   plan: TodayCoachPlan;
   quickWaterMl: number;
 }) {
-  const metrics = plan.metrics.value;
-  const items = [
-    ["Calories", `${metrics.calories} kcal`],
-    ["Protein", `${metrics.proteinG} g`],
-    ["Water", `${metrics.waterMl} ml`],
-    ["Workout", `${metrics.workoutMin} min`],
-    ["Steps", metrics.steps.toLocaleString("id-ID")],
-    ["Sleep", `${metrics.sleepHours} h`],
+  const metrics = plan.metrics;
+  const primary: Array<[string, MetricValue | GoalMetricValue]> = [
+    ["Coach Score", metrics.coachScore],
+    ["Calories", metrics.calories],
+    ["Protein", metrics.protein],
+    ["Water", metrics.water],
+    ["Sleep", metrics.sleep],
+    ["Workout", metrics.workout],
+  ];
+  const secondary: Array<[string, MetricValue]> = [
+    ["Weight", metrics.body.weightKg],
+    ["Waist", metrics.body.waistCm],
+    ["BMR", metrics.body.bmrKcal],
+    ["TDEE", metrics.body.tdeeKcal],
+    ["Deficit", metrics.body.deficitKcal],
   ];
   return (
     <GlassCard>
       <section aria-labelledby="today-metrics-heading">
         <h2 id="today-metrics-heading" className="text-base font-semibold text-ink">
-          Today’s metrics
+          Health metrics
         </h2>
-        <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {items.map(([label, value]) => (
-            <div key={label} className="rounded-control bg-bg-elevated px-3 py-2">
-              <dt className="text-xs text-ink-muted">{label}</dt>
-              <dd className="text-sm font-semibold text-ink">{value}</dd>
+        <p className="mt-1 text-xs text-ink-muted">Primary daily progress</p>
+        <dl className="mt-3 grid grid-cols-2 divide-x divide-y divide-ink/8 overflow-hidden rounded-control border border-ink/8 sm:grid-cols-3">
+          {primary.map(([label, metric]) => (
+            <div key={label} className="min-w-0 px-3 py-3">
+              <dt className="flex flex-wrap items-center gap-1 text-xs text-ink-muted">
+                {label}
+                <MetricStatusLabel metric={metric} />
+              </dt>
+              <dd className="mt-1 text-base font-semibold text-ink">
+                {formatMetricValue(metric)}
+              </dd>
+              {"target" in metric && metric.target !== null && (
+                <p className="mt-1 text-xs text-ink-muted">
+                  Target {metric.target} {metric.unit}
+                  {metric.remaining !== null
+                    ? ` · ${metric.remaining} ${metric.unit} remaining`
+                    : ""}
+                </p>
+              )}
             </div>
           ))}
         </dl>
+        <div className="mt-4 border-t border-ink/8 pt-4">
+          <p className="text-xs font-semibold text-ink">
+            Body &amp; energy
+          </p>
+          <dl className="mt-2 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-5">
+            {secondary.map(([label, metric]) => (
+              <div key={label} className="min-w-0">
+                <dt className="flex flex-wrap items-center gap-1 text-xs text-ink-muted">
+                  {label}
+                  <MetricStatusLabel metric={metric} />
+                </dt>
+                <dd className="mt-1 text-sm font-semibold text-ink">
+                  {formatMetricValue(metric)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {metrics.body.trend && (
+            <p className="mt-3 text-xs text-ink-muted">
+              Weight trend: {metrics.body.trend.direction}{" "}
+              ({metrics.body.trend.change > 0 ? "+" : ""}
+              {metrics.body.trend.change} {metrics.body.trend.unit})
+            </p>
+          )}
+        </div>
         <p role="status" className="mt-3 text-xs text-ink-muted">
           Water added with quick log this session: {quickWaterMl} ml.
         </p>
       </section>
     </GlassCard>
+  );
+}
+
+function formatMetricValue(metric: MetricValue): string {
+  if (metric.value === null) return "Not available";
+  return `${metric.value.toLocaleString("id-ID")} ${metric.unit}`;
+}
+
+function MetricStatusLabel({ metric }: { metric: MetricValue }) {
+  if (metric.status === "ready") return null;
+  return (
+    <span className="rounded-full bg-bg-elevated px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
+      {metric.status}
+    </span>
   );
 }
 

@@ -122,8 +122,96 @@ function makePlan(status: TodayCoachPlan["status"] = "ready"): TodayCoachPlan {
     timeline,
     meals: tracedMeals,
     metrics: {
-      value: daily.targets,
-      sourceIds: ["planner.daily.targets"],
+      coachScore: {
+        value: 0,
+        unit: "/100",
+        status: "ready",
+        sourceIds: ["coach.daily-score"],
+      },
+      calories: {
+        value: 0,
+        unit: "kcal",
+        status: "ready",
+        target: daily.targets.calories,
+        remaining: daily.targets.calories,
+        progressPercent: 0,
+        sourceIds: ["repository.meals"],
+      },
+      protein: {
+        value: 0,
+        unit: "g",
+        status: "empty",
+        target: daily.targets.proteinG,
+        remaining: daily.targets.proteinG,
+        progressPercent: 0,
+        sourceIds: ["repository.meals"],
+      },
+      water: {
+        value: 250,
+        unit: "ml",
+        status: "ready",
+        target: daily.targets.waterMl,
+        remaining: daily.targets.waterMl - 250,
+        progressPercent: 13,
+        sourceIds: ["repository.water"],
+      },
+      sleep: {
+        value: null,
+        unit: "h",
+        status: "empty",
+        target: daily.targets.sleepHours,
+        remaining: null,
+        progressPercent: null,
+        sourceIds: ["repository.sleep"],
+      },
+      workout: {
+        value: null,
+        unit: "min",
+        status: "unavailable",
+        target: daily.targets.workoutMin,
+        remaining: null,
+        progressPercent: null,
+        sourceIds: ["repository.workouts"],
+      },
+      body: {
+        weightKg: {
+          value: 65,
+          unit: "kg",
+          status: "ready",
+          sourceIds: ["repository.weights"],
+        },
+        waistCm: {
+          value: 75,
+          unit: "cm",
+          status: "ready",
+          sourceIds: ["repository.waists"],
+        },
+        bmrKcal: {
+          value: 1340,
+          unit: "kcal",
+          status: "estimated",
+          sourceIds: ["coach.energy-calculator"],
+        },
+        tdeeKcal: {
+          value: 1843,
+          unit: "kcal",
+          status: "estimated",
+          sourceIds: ["coach.energy-calculator"],
+        },
+        deficitKcal: {
+          value: 443,
+          unit: "kcal",
+          status: "estimated",
+          sourceIds: ["coach.energy-calculator"],
+        },
+        trend: {
+          metric: "weightKg",
+          direction: "down",
+          change: -0.5,
+          unit: "kg",
+          sourceIds: ["repository.weights"],
+        },
+      },
     },
     officeLunch: null,
     emergencyAdjustment: null,
@@ -154,6 +242,7 @@ function makePlan(status: TodayCoachPlan["status"] = "ready"): TodayCoachPlan {
         settings: { status: "available" },
         currentDateTime: { status: "available" },
         weights: { status: "available" },
+        waists: { status: "available" },
         meals: { status: "available" },
         water: { status: "available" },
         workouts: { status: "available" },
@@ -218,7 +307,11 @@ describe("Today dashboard", () => {
     expect(screen.getByRole("heading", { name: "Today’s Win" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Timeline" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Nutrition guidance" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Today’s metrics" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Health metrics" })).toBeInTheDocument();
+    expect(screen.getByText("Primary daily progress")).toBeInTheDocument();
+    expect(screen.getByText("Body & energy")).toBeInTheDocument();
+    expect(screen.getByText("0 /100")).toBeInTheDocument();
+    expect(screen.getAllByText("estimated")).toHaveLength(3);
     expect(screen.getByText("Remember the retained motivation.")).toBeInTheDocument();
     expect(screen.getAllByText(/Remaining after/)).toHaveLength(4);
     expect(screen.getAllByText("Approved alternatives")).toHaveLength(4);

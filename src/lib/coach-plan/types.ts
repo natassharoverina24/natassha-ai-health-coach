@@ -2,7 +2,6 @@ import type { CoachDecision } from "@/lib/engines/decisionEngine";
 import type {
   AdaptiveAdjustmentResult,
   ApprovedIngredientCatalogue,
-  DailyTargets,
   EmergencyDisruption,
   EmergencyPlanResult,
   InsightSummary,
@@ -131,6 +130,50 @@ export interface TodayCoachMeals {
   dinner: TodayCoachMealGuidance;
 }
 
+export type MetricStatus =
+  | "ready"
+  | "empty"
+  | "unavailable"
+  | "estimated";
+
+export interface MetricValue {
+  value: number | null;
+  unit: string;
+  status: MetricStatus;
+  sourceIds: string[];
+}
+
+export interface GoalMetricValue extends MetricValue {
+  target: number | null;
+  remaining: number | null;
+  progressPercent: number | null;
+}
+
+export interface MetricTrend {
+  metric: "weightKg";
+  direction: "up" | "down" | "flat";
+  change: number;
+  unit: "kg";
+  sourceIds: string[];
+}
+
+export interface DailyMetricSummary {
+  coachScore: MetricValue;
+  calories: GoalMetricValue;
+  protein: GoalMetricValue;
+  water: GoalMetricValue;
+  sleep: GoalMetricValue;
+  workout: GoalMetricValue;
+  body: {
+    weightKg: MetricValue;
+    waistCm: MetricValue;
+    bmrKcal: MetricValue;
+    tdeeKcal: MetricValue;
+    deficitKcal: MetricValue;
+    trend: MetricTrend | null;
+  };
+}
+
 export interface TodayCoachBriefing {
   retainedInsights: CoachDecision["insights"];
   encouragement: TraceableValue<string> | null;
@@ -151,6 +194,7 @@ export interface TodayCoachDataAvailability {
     settings: DataSourceAvailability;
     currentDateTime: DataSourceAvailability;
     weights: DataSourceAvailability;
+    waists: DataSourceAvailability;
     meals: DataSourceAvailability;
     water: DataSourceAvailability;
     workouts: DataSourceAvailability;
@@ -194,7 +238,7 @@ export interface TodayCoachPlan {
   todaysWin: TraceableValue<InsightSummary> | null;
   timeline: TodayCoachTimelineItem[];
   meals: TodayCoachMeals;
-  metrics: TraceableValue<DailyTargets>;
+  metrics: DailyMetricSummary;
   officeLunch: TraceableValue<OfficeLunchPlan> | null;
   emergencyAdjustment: TraceableValue<EmergencyPlanResult> | null;
   adaptiveAdjustments: TraceableValue<AdaptiveAdjustmentResult>;

@@ -1,7 +1,7 @@
 import type { TodayCoachPlan } from "./types";
 
 const CACHE_KEY = "today-coach-plan:last-known";
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 
 interface TodayCoachPlanCacheEnvelope {
   version: typeof CACHE_VERSION;

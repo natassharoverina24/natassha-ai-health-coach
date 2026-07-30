@@ -13,6 +13,7 @@ import { mealsRepository } from "@/lib/db/meals.repository";
 import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repository";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { workoutsRepository } from "@/lib/db/workouts.repository";
+import { waistsRepository } from "@/lib/db/waists.repository";
 import {
   generateDailyPlan,
   generateMealPlan,
@@ -36,6 +37,9 @@ jest.mock("@/lib/db/workouts.repository", () => ({
 }));
 jest.mock("@/lib/db/timelineCompletions.repository", () => ({
   timelineCompletionsRepository: { listForUserByDate: jest.fn() },
+}));
+jest.mock("@/lib/db/waists.repository", () => ({
+  waistsRepository: { listForUser: jest.fn() },
 }));
 
 const proteinInsight: EngineInsight = {
@@ -146,6 +150,9 @@ beforeEach(() => {
   (timelineCompletionsRepository.listForUserByDate as jest.Mock)
     .mockReset()
     .mockResolvedValue([]);
+  (waistsRepository.listForUser as jest.Mock)
+    .mockReset()
+    .mockResolvedValue([]);
 });
 
 describe("buildTodayCoachPlan", () => {
@@ -164,7 +171,15 @@ describe("buildTodayCoachPlan", () => {
         todaysWin: null,
         timeline: expect.any(Array),
         meals: expect.any(Object),
-        metrics: expect.objectContaining({ sourceIds: expect.any(Array) }),
+        metrics: expect.objectContaining({
+          coachScore: expect.objectContaining({
+            sourceIds: expect.any(Array),
+          }),
+          calories: expect.objectContaining({
+            sourceIds: expect.any(Array),
+          }),
+          body: expect.any(Object),
+        }),
         officeLunch: expect.objectContaining({ sourceIds: expect.any(Array) }),
         emergencyAdjustment: expect.objectContaining({
           sourceIds: expect.any(Array),
@@ -250,7 +265,12 @@ describe("buildTodayCoachPlan", () => {
       });
       expect(result.meals[slot].sourceIds).toContain(proteinInsight.id);
     }
-    expect(result.metrics.value).toEqual(expectedDaily.targets);
+    expect(result.metrics.calories.target).toBe(expectedDaily.targets.calories);
+    expect(result.metrics.protein.target).toBe(expectedDaily.targets.proteinG);
+    expect(result.metrics.water.target).toBe(expectedDaily.targets.waterMl);
+    expect(result.metrics.workout.target).toBe(expectedDaily.targets.workoutMin);
+    expect(result.metrics.sleep.target).toBe(expectedDaily.targets.sleepHours);
+    expect(result.metrics.coachScore.sourceIds).toContain("coach.daily-score");
   });
 
   it("uses null and structured availability when optional planner inputs are absent", async () => {
