@@ -81,12 +81,29 @@ values are intentionally client-visible; security rules enforce data access.
    `natassha-ai-health-coach-blush.vercel.app` under Authentication
    **Settings > Authorized domains**. This Firebase Console setting is required
    for both desktop popup and mobile redirect sign-in.
-4. Create Firestore in production mode. Firebase Storage is not required.
-5. Configure the five required Firebase variables in the host and GitHub
+4. Set `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` in Vercel to
+   `natassha-ai-health-coach-blush.vercel.app`. The application transparently
+   proxies `/__/auth/*` and `/__/firebase/init.json` to the configured
+   Firebase project's `firebaseapp.com` host so mobile Safari keeps redirect
+   state on the application origin. This must be a proxy, not an HTTP redirect.
+5. In Google Cloud Console, open the OAuth 2.0 web client used by Firebase
+   Authentication and add this exact authorized redirect URI if it is not
+   already present:
+
+   ```text
+   https://natassha-ai-health-coach-blush.vercel.app/__/auth/handler
+   ```
+
+6. Redeploy the Vercel application after changing the environment variable,
+   then verify `/__/auth/handler` and `/__/firebase/init.json` are served by
+   the same application domain rather than returning the Next.js login page or
+   a 404.
+7. Create Firestore in production mode. Firebase Storage is not required.
+8. Configure the five required Firebase variables in the host and GitHub
    Actions.
-6. Complete the Firestore portion of the Firebase Rules Emulator checklist
+9. Complete the Firestore portion of the Firebase Rules Emulator checklist
    before deploying rules.
-7. After approval, deploy with:
+10. After approval, deploy with:
 
    ```text
    firebase deploy --only firestore:rules,firestore:indexes
@@ -96,7 +113,7 @@ values are intentionally client-visible; security rules enforce data access.
    whenever a user-owned collection is added, including
    `active_disruptions`; otherwise production correctly denies that new path.
 
-8. Restrict the Firebase Web API key to intended APIs and production origins
+11. Restrict the Firebase Web API key to intended APIs and production origins
    without blocking Firebase Authentication.
 
 ## CI expectations

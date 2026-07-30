@@ -75,6 +75,7 @@ function safeAuthErrorCode(error: unknown): string {
 
 function logAuthEvent(
   event:
+    | "flow selected"
     | "redirect result checked"
     | "auth state resolved"
     | "sign-in failed",
@@ -117,6 +118,11 @@ async function configureAuthPersistence(): Promise<AuthPersistenceMode> {
 
 export async function signInWithGoogle(): Promise<User | null> {
   const flow = getGoogleSignInFlow();
+  logAuthEvent("flow selected", {
+    flow,
+    code: "auth/ok",
+    message: flow === "redirect" ? "mobile-redirect" : "desktop-popup",
+  });
   try {
     const persistence = await configureAuthPersistence();
     if (flow === "redirect" && persistence === "memory") {

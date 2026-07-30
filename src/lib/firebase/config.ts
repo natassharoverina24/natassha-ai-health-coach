@@ -15,6 +15,7 @@ import {
   persistentMultipleTabManager,
 } from "firebase/firestore";
 import { resolveFirebaseEnvironment } from "@/lib/config/environment";
+import { resolveFirebaseAuthDomain } from "@/lib/config/firebaseAuthDomain";
 
 const resolvedFirebaseEnvironment = resolveFirebaseEnvironment(
   {
@@ -51,7 +52,13 @@ export const firebaseConfigIsPresent =
  * runtime with a clear, actionable error — this only prevents a missing
  * `.env.local` from taking down the entire build.
  */
-const firebaseConfig = resolvedFirebaseEnvironment.config;
+const firebaseConfig = {
+  ...resolvedFirebaseEnvironment.config,
+  authDomain: resolveFirebaseAuthDomain(
+    resolvedFirebaseEnvironment.config.authDomain,
+    typeof window === "undefined" ? undefined : window.location.hostname,
+  ),
+};
 
 function warnIfMisconfigured() {
   if (

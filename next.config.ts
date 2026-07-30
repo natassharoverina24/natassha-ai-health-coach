@@ -1,5 +1,29 @@
 import type { NextConfig } from "next";
 
+const FIREBASE_PROJECT_ID_PATTERN = /^[a-z0-9-]+$/;
+
+export function buildFirebaseAuthRewrites(projectId: string | undefined) {
+  const normalizedProjectId = projectId?.trim();
+  if (
+    !normalizedProjectId ||
+    !FIREBASE_PROJECT_ID_PATTERN.test(normalizedProjectId)
+  ) {
+    return [];
+  }
+
+  const firebaseHostingOrigin = `https://${normalizedProjectId}.firebaseapp.com`;
+  return [
+    {
+      source: "/__/auth/:path*",
+      destination: `${firebaseHostingOrigin}/__/auth/:path*`,
+    },
+    {
+      source: "/__/firebase/init.json",
+      destination: `${firebaseHostingOrigin}/__/firebase/init.json`,
+    },
+  ];
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
@@ -10,10 +34,18 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  async rewrites() {
+    return buildFirebaseAuthRewrites(
+      process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    );
+  },
+
   async headers() {
     return [
       {
-        source: "/(.*)",
+        // Firebase's same-origin auth iframe must be embeddable by this app.
+        // The proxied reserved helper paths retain Firebase's own headers.
+        source: "/((?!__/auth(?:/.*)?|__/firebase/init\\.json).*)",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },

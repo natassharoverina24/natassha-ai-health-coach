@@ -60,6 +60,9 @@ describe("Google sign-in browser flow", () => {
   it("uses popup on a desktop browser", async () => {
     const user = { uid: "desktop-user" };
     signInWithPopupMock.mockResolvedValue({ user });
+    const consoleInfo = jest
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
 
     await expect(signInWithGoogle()).resolves.toBe(user);
     expect(setPersistenceMock).toHaveBeenCalledWith(
@@ -68,6 +71,12 @@ describe("Google sign-in browser flow", () => {
     );
     expect(signInWithPopupMock).toHaveBeenCalledTimes(1);
     expect(signInWithRedirectMock).not.toHaveBeenCalled();
+    expect(consoleInfo).toHaveBeenCalledWith("[Auth] flow selected", {
+      flow: "popup",
+      code: "auth/ok",
+      message: "desktop-popup",
+    });
+    consoleInfo.mockRestore();
   });
 
   it("uses redirect on iPhone Safari", async () => {
@@ -76,6 +85,9 @@ describe("Google sign-in browser flow", () => {
       5,
     );
     signInWithRedirectMock.mockResolvedValue(undefined);
+    const consoleInfo = jest
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
 
     await expect(signInWithGoogle()).resolves.toBeNull();
     expect(setPersistenceMock).toHaveBeenCalledWith(
@@ -84,6 +96,15 @@ describe("Google sign-in browser flow", () => {
     );
     expect(signInWithRedirectMock).toHaveBeenCalledTimes(1);
     expect(signInWithPopupMock).not.toHaveBeenCalled();
+    expect(consoleInfo).toHaveBeenCalledWith("[Auth] flow selected", {
+      flow: "redirect",
+      code: "auth/ok",
+      message: "mobile-redirect",
+    });
+    expect(JSON.stringify(consoleInfo.mock.calls)).not.toMatch(
+      /token|credential|api[_-]?key/i,
+    );
+    consoleInfo.mockRestore();
   });
 
   it("recognizes iPadOS desktop-style user agents", () => {
