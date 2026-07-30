@@ -8,10 +8,10 @@ import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repo
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { workoutsRepository } from "@/lib/db/workouts.repository";
 import { waistsRepository } from "@/lib/db/waists.repository";
+import { activeDisruptionsRepository } from "@/lib/db/activeDisruptions.repository";
 import {
   applyAdaptiveAdjustments,
   generateDailyPlan,
-  generateEmergencyPlan,
   generateMealPlan,
   generateOfficeLunchPlan,
   generateWeeklyMealPrep,
@@ -33,6 +33,7 @@ import {
 } from "./availability";
 import { buildMealGuidance } from "./buildMealGuidance";
 import { buildMetricSummary } from "./buildMetricSummary";
+import { buildEmergencySummary } from "./buildEmergencySummary";
 
 function tracedInsight(
   value: InsightSummary | null,
@@ -94,8 +95,8 @@ function warningsFor(
     warnings.push({
       code: "emergency-disruption-unavailable",
       message:
-        "No disruption was supplied, so today’s regular plan remains in place.",
-      sourceIds: ["planner.emergency"],
+        "Today's emergency-mode status could not be checked, so the regular plan remains visible.",
+      sourceIds: ["repository.active-disruptions"],
     });
   } else if (dataAvailability.emergencyAdjustment === "invalid-input") {
     warnings.push({
@@ -205,6 +206,7 @@ export async function buildTodayCoachPlan(
     workoutLogsResult,
     manualCompletionsResult,
     waistsResult,
+    activeDisruptionResult,
   ] =
     await Promise.all([
       loadDataSource(
@@ -234,6 +236,20 @@ export async function buildTodayCoachPlan(
       loadDataSource(() => waistsRepository.listForUser(userId, 90), [], {
         isEmpty: (items) => items.length === 0,
       }),
+      options.activeDisruption !== undefined
+        ? Promise.resolve({
+            status: options.activeDisruption ? "available" as const : "empty" as const,
+            data: options.activeDisruption,
+          })
+        : loadDataSource(
+            () =>
+              activeDisruptionsRepository.getActiveForUserByDate(
+                userId,
+                context.today,
+              ),
+            null,
+            { isEmpty: (item) => item === null },
+          ),
     ]);
   const mealLogs =
     mealLogsResult.status === "unavailable" ? null : mealLogsResult.data;
@@ -267,7 +283,7 @@ export async function buildTodayCoachPlan(
     mealLogs,
     officeLunchPlan: officeLunch,
   });
-  const timeline = reconcileTimelineStatus({
+  let timeline = reconcileTimelineStatus({
     date: context.today,
     currentDate: context.today,
     dailyPlan,
@@ -288,9 +304,20 @@ export async function buildTodayCoachPlan(
           ingredientCatalogue: options.ingredientCatalogue,
         })
       : null;
-  const emergencyAdjustment = options.emergencyDisruption
-    ? generateEmergencyPlan(decision, context, options.emergencyDisruption)
+  const activeDisruption =
+    activeDisruptionResult.status === "unavailable"
+      ? null
+      : activeDisruptionResult.data;
+  const emergencyBuild = activeDisruption
+    ? buildEmergencySummary({
+        active: activeDisruption,
+        decision,
+        context,
+        timeline,
+      })
     : null;
+  if (emergencyBuild) timeline = emergencyBuild.timeline;
+  const emergencyAdjustment = emergencyBuild?.summary ?? null;
   const adaptiveAdjustments = applyAdaptiveAdjustments({
     plan: {
       date: context.today,
@@ -305,7 +332,12 @@ export async function buildTodayCoachPlan(
     dailyPlan: "available",
     mealPlan: "available",
     officeLunch: officeLunchAvailability,
-    emergencyAdjustment: availabilityFromResult(emergencyAdjustment),
+    emergencyAdjustment:
+      activeDisruptionResult.status === "unavailable"
+        ? "unavailable"
+        : emergencyAdjustment
+          ? "available"
+          : "not-applicable",
     adaptiveAdjustments: availabilityFromResult(adaptiveAdjustments),
     weeklyContext: availabilityFromResult(weeklyContext),
     timelineStatus: {
@@ -327,6 +359,7 @@ export async function buildTodayCoachPlan(
       cycles: sourceAvailability(sources.cycles),
       motivations: sourceAvailability(sources.motivations),
       timelineCompletions: sourceAvailability(manualCompletionsResult),
+      activeDisruption: sourceAvailability(activeDisruptionResult),
     },
     cache: { status: "empty" },
   };
@@ -377,7 +410,7 @@ export async function buildTodayCoachPlan(
     emergencyAdjustment: emergencyAdjustment
       ? {
           value: emergencyAdjustment,
-          sourceIds: buildTraceSourceIds("planner.emergency", decision),
+          sourceIds: [...emergencyAdjustment.sourceIds],
         }
       : null,
     adaptiveAdjustments: {

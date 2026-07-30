@@ -167,6 +167,38 @@ export interface TimelineCompletionEntry extends BaseDocument {
   completedAt: ISODateString;
 }
 
+export type EmergencyDisruptionType =
+  | "working-late"
+  | "migraine"
+  | "feeling-unwell"
+  | "pms"
+  | "travelling"
+  | "event-or-reception"
+  | "missed-workout"
+  | "skipped-meal";
+
+export type EmergencyAffectedSlot =
+  | "breakfast"
+  | "lunch"
+  | "snack"
+  | "dinner"
+  | "workout";
+
+export interface ActiveDisruption extends BaseDocument {
+  userId: string;
+  date: ISODateString;
+  type: EmergencyDisruptionType;
+  startedAt: ISODateString;
+  note: string | null;
+  status: "active" | "cleared";
+  clearedAt: ISODateString | null;
+  expectedEndAt: string | null;
+  affectedSlot: EmergencyAffectedSlot | null;
+  affectedMealSlot: "lunch" | "dinner" | "snack" | null;
+  skippedMealSlot: MealType | null;
+  skippedAt: string | null;
+}
+
 // -----------------------------------------------------------------------------
 // workouts
 // -----------------------------------------------------------------------------
@@ -349,6 +381,7 @@ export const COLLECTIONS = {
   supplementLogs: "supplement_logs",
   waterLogs: "water_logs",
   timelineCompletions: "timeline_completions",
+  activeDisruptions: "active_disruptions",
   workouts: "workouts",
   sleepLogs: "sleep_logs",
   motivations: "motivations",

@@ -26,6 +26,10 @@ import type {
 } from "@/lib/coach-plan";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repository";
+import {
+  activeDisruptionsRepository,
+  type ActiveDisruptionSelection,
+} from "@/lib/db/activeDisruptions.repository";
 import type {
   InsightSummary,
   OfficeLunchRecommendation,
@@ -33,6 +37,7 @@ import type {
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { PlansChangedCard } from "./PlansChangedCard";
 
 export function TodayDashboard() {
   const { user } = useAuth();
@@ -42,6 +47,8 @@ export function TodayDashboard() {
   const [waterError, setWaterError] = useState<string | null>(null);
   const [timelineSavingId, setTimelineSavingId] = useState<string | null>(null);
   const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [disruptionSaving, setDisruptionSaving] = useState(false);
+  const [disruptionError, setDisruptionError] = useState<string | null>(null);
 
   const addWater = async (amountMl: number) => {
     if (!user || !plan) return;
@@ -83,6 +90,47 @@ export function TodayDashboard() {
       );
     } finally {
       setTimelineSavingId(null);
+    }
+  };
+
+  const saveDisruption = async (selection: ActiveDisruptionSelection) => {
+    if (!user || !plan) return;
+    setDisruptionSaving(true);
+    setDisruptionError(null);
+    try {
+      await activeDisruptionsRepository.setActive({
+        userId: user.uid,
+        date: plan.date,
+        startedAt: new Date().toISOString(),
+        ...selection,
+      });
+      await refresh();
+    } catch {
+      setDisruptionError(
+        "Today's adjustment could not be saved. Please try again.",
+      );
+    } finally {
+      setDisruptionSaving(false);
+    }
+  };
+
+  const clearDisruption = async () => {
+    if (!user || !plan) return;
+    setDisruptionSaving(true);
+    setDisruptionError(null);
+    try {
+      await activeDisruptionsRepository.clear(
+        user.uid,
+        plan.date,
+        new Date().toISOString(),
+      );
+      await refresh();
+    } catch {
+      setDisruptionError(
+        "Today's adjustment could not be cleared. Please try again.",
+      );
+    } finally {
+      setDisruptionSaving(false);
     }
   };
 
@@ -137,6 +185,13 @@ export function TodayDashboard() {
 
       <TodayBriefing plan={plan} />
       <TodayHighlights plan={plan} />
+      <PlansChangedCard
+        adjustment={plan.emergencyAdjustment?.value ?? null}
+        saving={disruptionSaving}
+        error={disruptionError}
+        onSave={saveDisruption}
+        onClear={clearDisruption}
+      />
 
       <div className="grid min-w-0 gap-5 xl:grid-cols-2">
         <TodayTimeline

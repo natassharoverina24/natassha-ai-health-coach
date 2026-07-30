@@ -27,6 +27,8 @@ const OTHER_ID = "other-user";
 const MEAL_PATH = "meals/owned-meal";
 const TIMELINE_COMPLETION_PATH =
   "timeline_completions/owner-user__2026-07-29__sleepPreparation";
+const ACTIVE_DISRUPTION_PATH =
+  "active_disruptions/owner-user__2026-07-29";
 const PHOTO_PATH = `users/${OWNER_ID}/meal_photos/meal.jpg`;
 const REPORT_PATH = `users/${OWNER_ID}/reports/report.pdf`;
 
@@ -85,6 +87,33 @@ async function seedOwnedMeal() {
 }
 
 describe("Firestore ownership rules", () => {
+  test("active disruption remains owner-only", async () => {
+    await assertSucceeds(
+      setDoc(doc(firestoreFor(OWNER_ID), ACTIVE_DISRUPTION_PATH), {
+        userId: OWNER_ID,
+        date: "2026-07-29",
+        type: "migraine",
+        status: "active",
+      }),
+    );
+    await assertFails(
+      getDoc(doc(firestoreFor(OTHER_ID), ACTIVE_DISRUPTION_PATH)),
+    );
+    await assertFails(
+      setDoc(doc(firestoreFor(OTHER_ID), ACTIVE_DISRUPTION_PATH), {
+        userId: OWNER_ID,
+        date: "2026-07-29",
+        type: "pms",
+        status: "active",
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(firestoreFor(OWNER_ID), ACTIVE_DISRUPTION_PATH), {
+        status: "cleared",
+      }),
+    );
+  });
+
   test("timeline completion remains owner-only", async () => {
     await assertSucceeds(
       setDoc(

@@ -130,6 +130,7 @@ function planFixture(): TodayCoachPlan {
         cycles: { status: "empty" },
         motivations: { status: "empty" },
         timelineCompletions: { status: "empty" },
+        activeDisruption: { status: "empty" },
       },
       cache: { status: "empty" },
     },

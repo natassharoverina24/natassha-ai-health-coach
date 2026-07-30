@@ -2,8 +2,6 @@ import type { CoachDecision } from "@/lib/engines/decisionEngine";
 import type {
   AdaptiveAdjustmentResult,
   ApprovedIngredientCatalogue,
-  EmergencyDisruption,
-  EmergencyPlanResult,
   InsightSummary,
   MealSlot,
   OfficeLunchPlan,
@@ -15,6 +13,10 @@ import type {
   DataSourceAvailability,
   DataSourceStatus,
 } from "./availability";
+import type {
+  ActiveDisruption,
+  EmergencyDisruptionType,
+} from "@/types/firestore";
 
 export type CoachPlanAvailabilityStatus =
   | "available"
@@ -180,6 +182,16 @@ export interface TodayCoachBriefing {
   sourceIds: string[];
 }
 
+export interface EmergencyAdjustmentSummary {
+  type: EmergencyDisruptionType;
+  message: string;
+  changedTimelineItemIds: string[];
+  preservedTargets: string[];
+  removedActions: string[];
+  replacementActions: string[];
+  sourceIds: string[];
+}
+
 export interface TodayCoachDataAvailability {
   decision: "available";
   dailyPlan: "available";
@@ -202,6 +214,7 @@ export interface TodayCoachDataAvailability {
     cycles: DataSourceAvailability;
     motivations: DataSourceAvailability;
     timelineCompletions: DataSourceAvailability;
+    activeDisruption: DataSourceAvailability;
   };
   cache: DataSourceAvailability;
 }
@@ -240,7 +253,7 @@ export interface TodayCoachPlan {
   meals: TodayCoachMeals;
   metrics: DailyMetricSummary;
   officeLunch: TraceableValue<OfficeLunchPlan> | null;
-  emergencyAdjustment: TraceableValue<EmergencyPlanResult> | null;
+  emergencyAdjustment: TraceableValue<EmergencyAdjustmentSummary> | null;
   adaptiveAdjustments: TraceableValue<AdaptiveAdjustmentResult>;
   weeklyContext: TraceableValue<WeeklyMealPrepResult> | null;
   dataAvailability: TodayCoachDataAvailability;
@@ -251,7 +264,7 @@ export interface TodayCoachPlanOptions {
   remainingNutritionBudget?: RemainingNutritionBudget;
   officeLunchByDate?: Readonly<Record<string, boolean>>;
   ingredientCatalogue?: ApprovedIngredientCatalogue;
-  emergencyDisruption?: EmergencyDisruption;
+  activeDisruption?: ActiveDisruption | null;
 }
 
 export const TODAY_COACH_MEAL_SLOTS: readonly MealSlot[] = [

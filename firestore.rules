@@ -92,6 +92,12 @@ service cloud.firestore {
       allow update: if ownsUpdatedDoc();
     }
 
+    match /active_disruptions/{docId} {
+      allow read, delete: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+      allow update: if ownsUpdatedDoc();
+    }
+
     match /workouts/{docId} {
       allow read, delete: if ownsExistingDoc();
       allow create: if ownsIncomingDoc();

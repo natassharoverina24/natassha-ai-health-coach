@@ -14,6 +14,7 @@ import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repo
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { workoutsRepository } from "@/lib/db/workouts.repository";
 import { waistsRepository } from "@/lib/db/waists.repository";
+import { activeDisruptionsRepository } from "@/lib/db/activeDisruptions.repository";
 import {
   generateDailyPlan,
   generateMealPlan,
@@ -40,6 +41,9 @@ jest.mock("@/lib/db/timelineCompletions.repository", () => ({
 }));
 jest.mock("@/lib/db/waists.repository", () => ({
   waistsRepository: { listForUser: jest.fn() },
+}));
+jest.mock("@/lib/db/activeDisruptions.repository", () => ({
+  activeDisruptionsRepository: { getActiveForUserByDate: jest.fn() },
 }));
 
 const proteinInsight: EngineInsight = {
@@ -106,9 +110,22 @@ const completeOptions: TodayCoachPlanOptions = {
   remainingNutritionBudget: { calories: 700, proteinG: 55 },
   officeLunchByDate: { "2026-07-29": true },
   ingredientCatalogue: syntheticIngredientCatalogue,
-  emergencyDisruption: {
-    type: "missed-breakfast",
-    occurredAt: "09:00",
+  activeDisruption: {
+    id: "user-1__2026-07-29",
+    createdAt: decision.generatedAt,
+    updatedAt: decision.generatedAt,
+    userId: "user-1",
+    date: "2026-07-29",
+    type: "skipped-meal",
+    startedAt: decision.generatedAt,
+    note: null,
+    status: "active",
+    clearedAt: null,
+    expectedEndAt: null,
+    affectedSlot: null,
+    affectedMealSlot: null,
+    skippedMealSlot: "breakfast",
+    skippedAt: "09:00",
   },
 };
 
@@ -153,6 +170,9 @@ beforeEach(() => {
   (waistsRepository.listForUser as jest.Mock)
     .mockReset()
     .mockResolvedValue([]);
+  (activeDisruptionsRepository.getActiveForUserByDate as jest.Mock)
+    .mockReset()
+    .mockResolvedValue(null);
 });
 
 describe("buildTodayCoachPlan", () => {
@@ -229,6 +249,22 @@ describe("buildTodayCoachPlan", () => {
     expect(second).toEqual(first);
   });
 
+  it("restores the same-day active disruption through the coach plan", async () => {
+    const active = completeOptions.activeDisruption!;
+    (activeDisruptionsRepository.getActiveForUserByDate as jest.Mock)
+      .mockResolvedValue(active);
+
+    const result = await buildTodayCoachPlan("user-1");
+
+    expect(
+      activeDisruptionsRepository.getActiveForUserByDate,
+    ).toHaveBeenCalledWith("user-1", "2026-07-29");
+    expect(result.emergencyAdjustment?.value.type).toBe("skipped-meal");
+    expect(result.timeline.some((item) => item.status === "adjusted")).toBe(
+      true,
+    );
+  });
+
   it("uses the existing daily timeline and meal planner outputs unchanged", async () => {
     const result = await buildTodayCoachPlan("user-1");
     const expectedDaily = generateDailyPlan(decision, context);
@@ -283,7 +319,7 @@ describe("buildTodayCoachPlan", () => {
       expect.objectContaining({
         officeLunch: "unavailable",
         weeklyContext: "unavailable",
-        emergencyAdjustment: "unavailable",
+        emergencyAdjustment: "not-applicable",
       }),
     );
     expect(result.warnings).toEqual(
@@ -297,11 +333,6 @@ describe("buildTodayCoachPlan", () => {
           code: "weekly-planning-input-unavailable",
           message: expect.any(String),
           sourceIds: ["planner.weekly-meal-prep"],
-        }),
-        expect.objectContaining({
-          code: "emergency-disruption-unavailable",
-          message: expect.any(String),
-          sourceIds: ["planner.emergency"],
         }),
       ]),
     );

@@ -9,6 +9,7 @@ import type { TodayCoachPlan } from "@/lib/coach-plan";
 import { buildMealGuidance } from "@/lib/coach-plan/buildMealGuidance";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repository";
+import { activeDisruptionsRepository } from "@/lib/db/activeDisruptions.repository";
 import type { CoachDecision } from "@/lib/engines/decisionEngine";
 import {
   generateDailyPlan,
@@ -29,6 +30,12 @@ jest.mock("@/lib/db/waterLogs.repository", () => ({
 }));
 jest.mock("@/lib/db/timelineCompletions.repository", () => ({
   timelineCompletionsRepository: { markCompleted: jest.fn() },
+}));
+jest.mock("@/lib/db/activeDisruptions.repository", () => ({
+  activeDisruptionsRepository: {
+    setActive: jest.fn(),
+    clear: jest.fn(),
+  },
 }));
 
 const decision: CoachDecision = {
@@ -250,6 +257,7 @@ function makePlan(status: TodayCoachPlan["status"] = "ready"): TodayCoachPlan {
         cycles: { status: "available" },
         motivations: { status: "available" },
         timelineCompletions: { status: "available" },
+        activeDisruption: { status: "empty" },
       },
       cache: { status: "empty" },
     },
@@ -288,6 +296,12 @@ beforeEach(() => {
   (timelineCompletionsRepository.markCompleted as jest.Mock)
     .mockReset()
     .mockResolvedValue("completion-1");
+  (activeDisruptionsRepository.setActive as jest.Mock)
+    .mockReset()
+    .mockResolvedValue("user-1__2026-07-29");
+  (activeDisruptionsRepository.clear as jest.Mock)
+    .mockReset()
+    .mockResolvedValue(undefined);
   refresh.mockClear();
 });
 
@@ -478,6 +492,97 @@ describe("Today dashboard", () => {
       }),
     );
     expect(refresh).not.toHaveBeenCalled();
+    expect(document.body).not.toHaveTextContent(/firebase|console|index url/i);
+  });
+
+  it("requires disruption-specific fields before saving", async () => {
+    const user = userEvent.setup();
+    render(<TodayDashboard />);
+
+    await user.selectOptions(
+      screen.getByLabelText("What changed?"),
+      "working-late",
+    );
+    expect(
+      screen.getByRole("button", { name: "Adjust today's plan" }),
+    ).toBeDisabled();
+    expect(activeDisruptionsRepository.setActive).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText("Expected finish time"), "21:00");
+    await user.click(
+      screen.getByRole("button", { name: "Adjust today's plan" }),
+    );
+
+    await waitFor(() =>
+      expect(activeDisruptionsRepository.setActive).toHaveBeenCalledWith({
+        userId: "user-1",
+        date: "2026-07-29",
+        startedAt: expect.any(String),
+        type: "working-late",
+        expectedEndAt: "21:00",
+      }),
+    );
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders a non-blaming adjustment and clears it for the same date", async () => {
+    const plan = makePlan();
+    plan.emergencyAdjustment = {
+      value: {
+        type: "migraine",
+        message: "We'll adjust the plan gently based on what you selected.",
+        changedTimelineItemIds: [`${plan.date}:lunch`],
+        preservedTargets: ["calories", "protein"],
+        removedActions: ["Keep planned lunch"],
+        replacementActions: ["Keep the existing meal simple and practical"],
+        sourceIds: ["active-disruption:user-1__2026-07-29"],
+      },
+      sourceIds: ["active-disruption:user-1__2026-07-29"],
+    };
+    (useTodayCoachPlan as jest.Mock).mockReturnValue({
+      plan,
+      loading: false,
+      refreshing: false,
+      error: null,
+      refresh,
+    });
+    const user = userEvent.setup();
+    render(<TodayDashboard />);
+
+    expect(
+      screen.getByText("No guilt. We adjusted today's plan."),
+    ).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/migraine detected|diagnos/i);
+    await user.click(screen.getByRole("button", { name: "Undo adjustment" }));
+
+    expect(activeDisruptionsRepository.clear).toHaveBeenCalledWith(
+      "user-1",
+      "2026-07-29",
+      expect.any(String),
+    );
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides raw repository errors when emergency mode save fails", async () => {
+    (activeDisruptionsRepository.setActive as jest.Mock).mockRejectedValue(
+      new Error("Firebase index https://console.firebase.google.com/private"),
+    );
+    const user = userEvent.setup();
+    render(<TodayDashboard />);
+
+    await user.selectOptions(
+      screen.getByLabelText("What changed?"),
+      "feeling-unwell",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Adjust today's plan" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Today's adjustment could not be saved. Please try again.",
+      ),
+    ).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent(/firebase|console|index url/i);
   });
 });
