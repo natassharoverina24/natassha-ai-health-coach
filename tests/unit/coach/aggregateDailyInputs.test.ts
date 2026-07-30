@@ -68,6 +68,41 @@ describe("buildDailyLogInputs", () => {
     expect(result.map((r) => r.date)).toEqual(["2026-07-24", "2026-07-25"]);
   });
 
+  it("excludes unresolved all-zero meal items from daily nutrition", () => {
+    const result = buildDailyLogInputs(["2026-07-25"], {
+      meals: [
+        makeMeal({
+          date: "2026-07-25",
+          macros: {
+            calories: 200,
+            proteinG: 4,
+            carbsG: 44,
+            fatG: 0.4,
+            fiberG: 0.6,
+          },
+        }),
+        makeMeal({
+          date: "2026-07-25",
+          macros: {
+            calories: 0,
+            proteinG: 0,
+            carbsG: 0,
+            fatG: 0,
+            fiberG: null,
+          },
+        }),
+      ],
+      waterLogs: [],
+      workouts: [],
+      sleepLogs: [],
+    });
+
+    expect(result[0]).toMatchObject({
+      caloriesConsumed: 200,
+      proteinConsumedG: 4,
+    });
+  });
+
   it("sums calories and protein from meals logged on that date only", () => {
     const meals = [
       makeMeal({ date: "2026-07-25", macros: { calories: 300, proteinG: 10, carbsG: 40, fatG: 5, fiberG: 4 } }),

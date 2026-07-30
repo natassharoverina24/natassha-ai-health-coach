@@ -5,9 +5,18 @@ import type { FormEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import type { MealType } from "@/types/firestore";
+import type {
+  MealNutritionConfirmation,
+  MealType,
+} from "@/types/firestore";
+import type {
+  ManualNutritionEstimateRequest,
+  ManualNutritionEstimateResult,
+  NutritionEstimateConfidence,
+} from "@/lib/ai/manualNutritionEstimate";
 
 export interface MealFormValues {
+  clientRequestId?: string;
   type: MealType;
   name: string;
   quantity: string | null;
@@ -18,6 +27,7 @@ export interface MealFormValues {
   fatG: number;
   fiberG: number | null;
   note: string | null;
+  nutritionConfirmation?: MealNutritionConfirmation;
 }
 
 const MEAL_TYPES: { value: MealType; label: string }[] = [
@@ -33,6 +43,9 @@ export interface MealEntryFormProps {
   submitLabel?: string;
   onSubmit: (values: MealFormValues) => Promise<void>;
   onCancel: () => void;
+  onEstimate?: (
+    request: ManualNutritionEstimateRequest,
+  ) => Promise<ManualNutritionEstimateResult>;
 }
 
 export function MealEntryForm({
@@ -41,8 +54,17 @@ export function MealEntryForm({
   submitLabel = "Save meal",
   onSubmit,
   onCancel,
+  onEstimate,
 }: MealEntryFormProps) {
   const [type, setType] = useState<MealType>(initialValues?.type ?? defaultType);
+  const [clientRequestId] = useState(
+    () =>
+      initialValues?.clientRequestId ??
+      `manual-meal-${
+        globalThis.crypto?.randomUUID?.() ??
+        `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      }`,
+  );
   const [name, setName] = useState(initialValues?.name ?? "");
   const [quantity, setQuantity] = useState(initialValues?.quantity ?? "");
   const [isOfficeLunch, setIsOfficeLunch] = useState(
@@ -53,9 +75,46 @@ export function MealEntryForm({
   const [carbs, setCarbs] = useState(initialValues?.carbsG?.toString() ?? "");
   const [fat, setFat] = useState(initialValues?.fatG?.toString() ?? "");
   const [fiber, setFiber] = useState(initialValues?.fiberG?.toString() ?? "");
+  const [servingGrams, setServingGrams] = useState("");
   const [note, setNote] = useState(initialValues?.note ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [estimateStatus, setEstimateStatus] = useState<
+    "unresolved" | "estimating" | "review" | "manual"
+  >(
+    onEstimate &&
+      initialValues?.calories === undefined
+      ? "unresolved"
+      : "review",
+  );
+  const [estimateSource, setEstimateSource] =
+    useState<MealNutritionConfirmation["source"]>("manual-entry");
+  const [estimateAssumptions, setEstimateAssumptions] = useState<string[]>([]);
+  const [estimatedAt, setEstimatedAt] = useState<string | null>(null);
+  const [estimateConfidence, setEstimateConfidence] =
+    useState<NutritionEstimateConfidence | null>(null);
+  const [estimateUncertain, setEstimateUncertain] = useState(false);
+
+  const clearEstimateForChangedFood = () => {
+    if (!onEstimate || estimateStatus === "unresolved") return;
+    setEstimateStatus("unresolved");
+    setCalories("");
+    setProtein("");
+    setCarbs("");
+    setFat("");
+    setFiber("");
+    setServingGrams("");
+    setEstimateAssumptions([]);
+    setEstimatedAt(null);
+    setEstimateConfidence(null);
+    setEstimateUncertain(false);
+  };
+
+  const parsedRequiredMacro = (value: string): number | null => {
+    if (!value.trim()) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -67,20 +126,89 @@ export function MealEntryForm({
     setSubmitting(true);
     setError(null);
     try {
+      if (onEstimate && estimateStatus === "unresolved") {
+        setEstimateStatus("estimating");
+        const result = await onEstimate({
+          name: name.trim(),
+          quantity: quantity.trim() || null,
+        });
+        if (result.status === "unavailable") {
+          setEstimateStatus("manual");
+          setEstimateSource("manual-entry");
+          setError("Nutrition estimate unavailable");
+          return;
+        }
+        const { estimate } = result;
+        setCalories(String(estimate.macros.calories));
+        setProtein(String(estimate.macros.proteinG));
+        setCarbs(String(estimate.macros.carbsG));
+        setFat(String(estimate.macros.fatG));
+        setServingGrams(
+          estimate.servingGrams === null
+            ? ""
+            : String(estimate.servingGrams),
+        );
+        setEstimateSource(estimate.source);
+        setEstimateAssumptions([...estimate.assumptions]);
+        setEstimatedAt(estimate.estimatedAt);
+        setEstimateConfidence(estimate.confidence);
+        setEstimateUncertain(estimate.uncertain);
+        setEstimateStatus("review");
+        return;
+      }
+      const parsedCalories = parsedRequiredMacro(calories);
+      const parsedProtein = parsedRequiredMacro(protein);
+      const parsedCarbs = parsedRequiredMacro(carbs);
+      const parsedFat = parsedRequiredMacro(fat);
+      if (
+        parsedCalories === null ||
+        parsedCalories <= 0 ||
+        parsedProtein === null ||
+        parsedCarbs === null ||
+        parsedFat === null
+      ) {
+        setError(
+          "Confirm calories, protein, carbs, and fat before saving. Calories must be greater than zero.",
+        );
+        return;
+      }
+      const parsedGrams = servingGrams.trim()
+        ? Number(servingGrams)
+        : null;
+      if (
+        parsedGrams !== null &&
+        (!Number.isFinite(parsedGrams) || parsedGrams <= 0)
+      ) {
+        setError("Serving grams must be greater than zero.");
+        return;
+      }
+      const confirmedAt = new Date().toISOString();
       await onSubmit({
+        clientRequestId,
         type,
         name: name.trim(),
         quantity: quantity.trim() || null,
         isOfficeLunch,
-        calories: parseFloat(calories) || 0,
-        proteinG: parseFloat(protein) || 0,
-        carbsG: parseFloat(carbs) || 0,
-        fatG: parseFloat(fat) || 0,
-        fiberG: fiber ? parseFloat(fiber) : null,
+        calories: parsedCalories,
+        proteinG: parsedProtein,
+        carbsG: parsedCarbs,
+        fatG: parsedFat,
+        fiberG: fiber.trim() ? parsedRequiredMacro(fiber) : null,
         note: note || null,
+        nutritionConfirmation: onEstimate
+          ? {
+              status: "confirmed",
+              source: estimateSource,
+              userConfirmed: true,
+              servingGrams: parsedGrams,
+              assumptions: [...estimateAssumptions],
+              estimatedAt,
+              confirmedAt,
+            }
+          : initialValues?.nutritionConfirmation,
       });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save meal.");
+    } catch {
+      setError("Failed to save meal. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -117,7 +245,10 @@ export function MealEntryForm({
           label="Food name"
           placeholder="e.g. Grilled chicken"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            clearEstimateForChangedFood();
+          }}
           required
         />
         <Input
@@ -125,7 +256,10 @@ export function MealEntryForm({
           label="Quantity (optional)"
           placeholder="e.g. 1 plate, 200g"
           value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
+          onChange={(e) => {
+            setQuantity(e.target.value);
+            clearEstimateForChangedFood();
+          }}
         />
       </div>
 
@@ -142,12 +276,50 @@ export function MealEntryForm({
       )}
 
       <div className="grid grid-cols-2 gap-3">
+        <Input
+          name="mealServingGrams"
+          type="number"
+          inputMode="decimal"
+          label="Serving grams (optional)"
+          suffix="g"
+          value={servingGrams}
+          onChange={(e) => setServingGrams(e.target.value)}
+        />
         <Input name="mealCalories" type="number" inputMode="decimal" label="Calories" suffix="kcal" value={calories} onChange={(e) => setCalories(e.target.value)} />
         <Input name="mealProtein" type="number" inputMode="decimal" label="Protein" suffix="g" value={protein} onChange={(e) => setProtein(e.target.value)} />
         <Input name="mealCarbs" type="number" inputMode="decimal" label="Carbs" suffix="g" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
         <Input name="mealFat" type="number" inputMode="decimal" label="Fat" suffix="g" value={fat} onChange={(e) => setFat(e.target.value)} />
         <Input name="mealFiber" type="number" inputMode="decimal" label="Fiber" suffix="g" value={fiber} onChange={(e) => setFiber(e.target.value)} />
       </div>
+
+      {estimateStatus === "estimating" && (
+        <p role="status" className="text-sm text-ink-muted">
+          Checking approved nutrition data…
+        </p>
+      )}
+      {(estimateStatus === "review" || estimateStatus === "manual") &&
+        onEstimate && (
+          <div className="rounded-control bg-teal-soft px-3 py-2 text-sm text-ink">
+            <p className="font-semibold">
+              Review and confirm nutrition before this food enters the meal
+              total.
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">
+              {estimateStatus === "manual"
+                ? "Manual nutrition entry"
+                : estimateUncertain
+                  ? `AI estimate: ${estimateConfidence ?? "low"} confidence · uncertain`
+                  : "Approved local nutrition"}
+            </p>
+            {estimateAssumptions.length > 0 && (
+              <ul className="mt-1 list-disc pl-5 text-xs text-ink-muted">
+                {estimateAssumptions.map((assumption) => (
+                  <li key={assumption}>{assumption}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
       <Input name="mealNote" label="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
 
@@ -158,7 +330,11 @@ export function MealEntryForm({
           Cancel
         </Button>
         <Button type="submit" className="flex-1" isLoading={submitting}>
-          {submitLabel}
+          {onEstimate && estimateStatus === "unresolved"
+            ? "Estimate nutrition"
+            : onEstimate
+              ? `Confirm and ${submitLabel.toLowerCase()}`
+              : submitLabel}
         </Button>
       </div>
     </form>

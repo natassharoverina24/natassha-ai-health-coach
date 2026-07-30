@@ -7,6 +7,7 @@
  * it's trivially unit-testable with plain fixture data.
  */
 import type { MealEntry, SleepEntry, WaterLogEntry, WorkoutEntry } from "@/types/firestore";
+import { hasConfirmedMealNutrition } from "@/lib/utils/nutritionEstimates";
 import type { DailyLogInputs } from "./types";
 
 export interface DailyInputSources {
@@ -18,7 +19,9 @@ export interface DailyInputSources {
 
 export function buildDailyLogInputs(dates: string[], sources: DailyInputSources): DailyLogInputs[] {
   return dates.map((date) => {
-    const dayMeals = sources.meals.filter((meal) => meal.date === date);
+    const dayMeals = sources.meals.filter(
+      (meal) => meal.date === date && hasConfirmedMealNutrition(meal),
+    );
     const dayWater = sources.waterLogs.filter((entry) => entry.date === date);
     const dayWorkouts = sources.workouts.filter((entry) => entry.date === date);
     const daySleep = sources.sleepLogs.find((entry) => entry.date === date) ?? null;

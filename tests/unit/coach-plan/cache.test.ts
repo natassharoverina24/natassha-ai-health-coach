@@ -1,4 +1,5 @@
 import {
+  invalidateTodayCoachPlanCache,
   readTodayCoachPlanCache,
   writeTodayCoachPlanCache,
 } from "@/lib/coach-plan/cache";
@@ -151,6 +152,18 @@ describe("TodayCoachPlan browser cache", () => {
     expect(raw).toContain('"savedAt":"2026-07-29T09:00:00.000Z"');
     expect(raw).not.toMatch(/Private free text|Private user motivation/);
     expect(raw).not.toMatch(/base64|imageUrl|storagePath|apiKey/i);
+  });
+
+  it("clears the cached plan and announces a refresh after meal changes", () => {
+    localStorage.setItem("today-coach-plan:last-known", "stale");
+    const listener = jest.fn();
+    window.addEventListener("today-coach-plan:invalidated", listener);
+
+    invalidateTodayCoachPlanCache();
+
+    expect(localStorage.getItem("today-coach-plan:last-known")).toBeNull();
+    expect(listener).toHaveBeenCalledTimes(1);
+    window.removeEventListener("today-coach-plan:invalidated", listener);
   });
 
   it("returns only the matching user's same-day plan as stale", () => {

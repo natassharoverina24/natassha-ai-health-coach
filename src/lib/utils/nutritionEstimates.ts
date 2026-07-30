@@ -1,4 +1,4 @@
-import type { MealMacro } from "@/types/firestore";
+import type { MealEntry, MealMacro } from "@/types/firestore";
 
 /**
  * Rough per-serving nutrition estimates for common Indonesian office-lunch
@@ -94,6 +94,30 @@ export function sumMacros(macrosList: MealMacro[]): MealMacro {
       fiberG: (total.fiberG ?? 0) + (m.fiberG ?? 0),
     }),
     { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0 },
+  );
+}
+
+/**
+ * Legacy meal documents with real positive calories remain confirmed.
+ * An all-zero legacy document is unresolved and must not enter totals until
+ * the person confirms nutrition values.
+ */
+export function hasConfirmedMealNutrition(
+  meal: Pick<MealEntry, "macros" | "nutritionConfirmation">,
+): boolean {
+  const { macros } = meal;
+  const numbers = [
+    macros.calories,
+    macros.proteinG,
+    macros.carbsG,
+    macros.fatG,
+  ];
+  return (
+    numbers.every((value) => Number.isFinite(value) && value >= 0) &&
+    macros.calories > 0 &&
+    (meal.nutritionConfirmation === undefined ||
+      (meal.nutritionConfirmation.status === "confirmed" &&
+        meal.nutritionConfirmation.userConfirmed === true))
   );
 }
 

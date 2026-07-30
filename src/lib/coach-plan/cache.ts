@@ -2,6 +2,8 @@ import type { TodayCoachPlan } from "./types";
 
 const CACHE_KEY = "today-coach-plan:last-known";
 const CACHE_VERSION = 2;
+export const TODAY_COACH_PLAN_INVALIDATED_EVENT =
+  "today-coach-plan:invalidated";
 
 interface TodayCoachPlanCacheEnvelope {
   version: typeof CACHE_VERSION;
@@ -81,6 +83,15 @@ export function clearTodayCoachPlanCache(
     storage?.removeItem(CACHE_KEY);
   } catch {
     // Clearing an optional cache is best-effort.
+  }
+}
+
+export function invalidateTodayCoachPlanCache(
+  storage = browserStorage(),
+): void {
+  clearTodayCoachPlanCache(storage);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(TODAY_COACH_PLAN_INVALIDATED_EVENT));
   }
 }
 

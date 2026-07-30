@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { MealPhotoSection } from "./MealPhotoSection";
 import { formatCalories, formatGrams, formatTimeLabel } from "@/lib/utils/format";
+import { hasConfirmedMealNutrition } from "@/lib/utils/nutritionEstimates";
 import type {
   ConfirmedMealPhotoEstimate,
   MealPhotoAnalysis,
@@ -47,6 +48,8 @@ export function MealDetailModal({
   onAnalyzePhoto,
   onConfirmPhotoEstimate,
 }: MealDetailModalProps) {
+  const nutritionConfirmed =
+    meal !== null && hasConfirmedMealNutrition(meal);
   return (
     <Modal open={meal !== null} onClose={onClose} title={meal?.name ?? "Meal detail"}>
       {meal && (
@@ -65,13 +68,20 @@ export function MealDetailModal({
             onConfirm={onConfirmPhotoEstimate}
           />
 
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-            <MacroStat label="Calories" value={formatCalories(meal.macros.calories)} />
-            <MacroStat label="Protein" value={formatGrams(meal.macros.proteinG)} />
-            <MacroStat label="Carbs" value={formatGrams(meal.macros.carbsG)} />
-            <MacroStat label="Fat" value={formatGrams(meal.macros.fatG)} />
-            <MacroStat label="Fiber" value={formatGrams(meal.macros.fiberG ?? 0)} />
-          </div>
+          {nutritionConfirmed ? (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              <MacroStat label="Calories" value={formatCalories(meal.macros.calories)} />
+              <MacroStat label="Protein" value={formatGrams(meal.macros.proteinG)} />
+              <MacroStat label="Carbs" value={formatGrams(meal.macros.carbsG)} />
+              <MacroStat label="Fat" value={formatGrams(meal.macros.fatG)} />
+              <MacroStat label="Fiber" value={formatGrams(meal.macros.fiberG ?? 0)} />
+            </div>
+          ) : (
+            <p className="rounded-control bg-amber-soft px-3 py-2 text-sm text-ink">
+              Nutrition unresolved. Add confirmed nutrition before this item
+              enters meal and daily totals.
+            </p>
+          )}
 
           {meal.note && (
             <div>

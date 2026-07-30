@@ -8,6 +8,7 @@ import {
   type PlannerUserContext,
 } from "@/lib/planner";
 import type { MealEntry, MealMacro } from "@/types/firestore";
+import { hasConfirmedMealNutrition } from "@/lib/utils/nutritionEstimates";
 import {
   TODAY_COACH_MEAL_SLOTS,
   type ConfirmedMealConsumption,
@@ -50,17 +51,18 @@ function sumLoggedNutrition(entries: readonly MealEntry[]): MealMacro {
 function confirmedConsumption(
   entries: readonly MealEntry[],
 ): ConfirmedMealConsumption | null {
-  if (entries.length === 0) return null;
-  const macros = sumLoggedNutrition(entries);
+  const confirmedEntries = entries.filter(hasConfirmedMealNutrition);
+  if (confirmedEntries.length === 0) return null;
+  const macros = sumLoggedNutrition(confirmedEntries);
   return {
-    entryCount: entries.length,
+    entryCount: confirmedEntries.length,
     nutrition: {
       caloriesKcal: macros.calories,
       proteinG: macros.proteinG,
       carbohydrateG: macros.carbsG,
       fatG: macros.fatG,
     },
-    sourceIds: entries.map((entry) => `meal-log:${entry.id}`),
+    sourceIds: confirmedEntries.map((entry) => `meal-log:${entry.id}`),
   };
 }
 

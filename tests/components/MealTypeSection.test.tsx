@@ -167,4 +167,99 @@ describe("MealTypeSection", () => {
     );
     expect(screen.getByText("Office lunch")).toBeInTheDocument();
   });
+
+  it("adds confirmed Rice and Soto macros and updates the total after editing Soto", () => {
+    const rice = makeMeal({
+      id: "rice",
+      name: "Rice",
+      macros: {
+        calories: 200,
+        proteinG: 4,
+        carbsG: 44,
+        fatG: 0.4,
+        fiberG: 0.6,
+      },
+    });
+    const soto = makeMeal({
+      id: "soto",
+      name: "Soto",
+      macros: {
+        calories: 320,
+        proteinG: 22,
+        carbsG: 35,
+        fatG: 10,
+        fiberG: null,
+      },
+    });
+    const props = {
+      type: "lunch" as const,
+      label: "Lunch",
+      onAddFood: jest.fn(),
+      onView: jest.fn(),
+      onEdit: jest.fn(),
+      onDelete: jest.fn(),
+    };
+    const { rerender } = render(
+      <MealTypeSection {...props} items={[rice, soto]} />,
+    );
+
+    expect(screen.getByText(/520 kcal/)).toBeInTheDocument();
+
+    rerender(
+      <MealTypeSection
+        {...props}
+        items={[
+          rice,
+          {
+            ...soto,
+            macros: { ...soto.macros, calories: 350, proteinG: 24 },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText(/550 kcal/)).toBeInTheDocument();
+  });
+
+  it("excludes unresolved all-zero legacy items from the meal total", () => {
+    render(
+      <MealTypeSection
+        type="lunch"
+        label="Lunch"
+        items={[
+          makeMeal({
+            id: "rice",
+            name: "Rice",
+            macros: {
+              calories: 200,
+              proteinG: 4,
+              carbsG: 44,
+              fatG: 0.4,
+              fiberG: 0.6,
+            },
+          }),
+          makeMeal({
+            id: "soto",
+            name: "Soto",
+            macros: {
+              calories: 0,
+              proteinG: 0,
+              carbsG: 0,
+              fatG: 0,
+              fiberG: null,
+            },
+          }),
+        ]}
+        onAddFood={jest.fn()}
+        onView={jest.fn()}
+        onEdit={jest.fn()}
+        onDelete={jest.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText(/200 kcal/).length).toBeGreaterThanOrEqual(2);
+    expect(
+      screen.getByText("Nutrition unresolved · excluded from total"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/1 item needs confirmed nutrition/i)).toBeInTheDocument();
+  });
 });

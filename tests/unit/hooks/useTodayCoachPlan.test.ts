@@ -15,6 +15,7 @@ jest.mock("@/lib/coach-plan", () => ({
   buildTodayCoachPlan: jest.fn(),
   readTodayCoachPlanCache: jest.fn(),
   writeTodayCoachPlanCache: jest.fn(),
+  TODAY_COACH_PLAN_INVALIDATED_EVENT: "today-coach-plan:invalidated",
 }));
 
 const plan = {
@@ -87,5 +88,16 @@ describe("useTodayCoachPlan", () => {
     expect(result.current.plan).toBe(cachedPlan);
     expect(result.current.error).not.toMatch(/firebase/i);
     expect(writeTodayCoachPlanCache).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the plan after confirmed meal data invalidates the cache", async () => {
+    renderHook(() => useTodayCoachPlan());
+    await waitFor(() => expect(buildTodayCoachPlan).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      window.dispatchEvent(new Event("today-coach-plan:invalidated"));
+    });
+
+    await waitFor(() => expect(buildTodayCoachPlan).toHaveBeenCalledTimes(2));
   });
 });

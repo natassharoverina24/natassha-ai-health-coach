@@ -36,12 +36,17 @@ import {
 } from "@/components/meal";
 import { DEFAULT_GOALS } from "@/lib/utils/constants";
 import { formatCalories, formatDateLabel, todayISODate } from "@/lib/utils/format";
-import { sumMacros } from "@/lib/utils/nutritionEstimates";
+import {
+  hasConfirmedMealNutrition,
+  sumMacros,
+} from "@/lib/utils/nutritionEstimates";
 import type {
   ConfirmedMealPhotoEstimate,
   MealPhotoAnalysis,
 } from "@/lib/ai/mealPhotoAnalysis";
 import { buildConfirmedMealUpdate } from "@/lib/ai/mealPhotoAnalysis";
+import { requestManualNutritionEstimate } from "@/lib/ai/manualNutritionEstimate";
+import { invalidateTodayCoachPlanCache } from "@/lib/coach-plan/cache";
 import type {
   MealEntry,
   MealType,
@@ -105,29 +110,48 @@ export default function MealPage() {
 
   const handleCreateMeal = async (values: MealFormValues) => {
     if (!uid) return;
-    await mealsRepository.create({
-      userId: uid,
-      date: viewDate,
-      type: values.type,
-      name: values.name,
-      quantity: values.quantity,
-      isOfficeLunch: values.isOfficeLunch,
-      macros: {
-        calories: values.calories,
-        proteinG: values.proteinG,
-        carbsG: values.carbsG,
-        fatG: values.fatG,
-        fiberG: values.fiberG,
+    await mealsRepository.create(
+      {
+        userId: uid,
+        date: viewDate,
+        type: values.type,
+        name: values.name,
+        quantity: values.quantity,
+        isOfficeLunch: values.isOfficeLunch,
+        macros: {
+          calories: values.calories,
+          proteinG: values.proteinG,
+          carbsG: values.carbsG,
+          fatG: values.fatG,
+          fiberG: values.fiberG,
+        },
+        ...(values.nutritionConfirmation
+          ? { nutritionConfirmation: values.nutritionConfirmation }
+          : {}),
+        photoIds: [],
+        score: null,
+        note: values.note,
       },
-      photoIds: [],
-      score: null,
-      note: values.note,
-    });
+      values.clientRequestId,
+    );
+    invalidateTodayCoachPlanCache();
     setAddModal(null);
   };
 
   const handleUpdateMeal = async (values: MealFormValues) => {
     if (!editingMeal) return;
+    const nutritionConfirmation =
+      values.nutritionConfirmation ??
+      editingMeal.nutritionConfirmation ??
+      {
+        status: "confirmed" as const,
+        source: "manual-entry" as const,
+        userConfirmed: true as const,
+        servingGrams: null,
+        assumptions: [],
+        estimatedAt: null,
+        confirmedAt: new Date().toISOString(),
+      };
     await mealsRepository.update(editingMeal.id, {
       type: values.type,
       name: values.name,
@@ -140,13 +164,16 @@ export default function MealPage() {
         fatG: values.fatG,
         fiberG: values.fiberG,
       },
+      nutritionConfirmation,
       note: values.note,
     });
+    invalidateTodayCoachPlanCache();
     setEditingMeal(null);
   };
 
   const handleDeleteMeal = async (id: string) => {
     await mealsRepository.remove(id);
+    invalidateTodayCoachPlanCache();
   };
 
   const handleCreateOfficeLunch = async (values: OfficeLunchFormValues) => {
@@ -169,6 +196,7 @@ export default function MealPage() {
       score: null,
       note: null,
     });
+    invalidateTodayCoachPlanCache();
     setOfficeLunchModalOpen(false);
   };
 
@@ -199,6 +227,7 @@ export default function MealPage() {
       ...confirmedUpdate,
     };
     await mealsRepository.update(meal.id, confirmedUpdate);
+    invalidateTodayCoachPlanCache();
     if (viewingMeal?.id === meal.id) setViewingMeal(updatedMeal);
   };
 
@@ -240,7 +269,11 @@ export default function MealPage() {
 
   // ---- Derived totals ---------------------------------------------------------
 
-  const dayTotals = sumMacros(meals.map((m) => m.macros));
+  const dayTotals = sumMacros(
+    meals
+      .filter(hasConfirmedMealNutrition)
+      .map((meal) => meal.macros),
+  );
   const grouped = TYPE_ORDER.map((type) => ({
     type,
     items: meals.filter((m) => m.type === type),
@@ -399,7 +432,13 @@ export default function MealPage() {
         title={addModal ? `Add to ${TYPE_LABEL[addModal.type].toLowerCase()}` : "Add food"}
       >
         {addModal && (
-          <MealEntryForm defaultType={addModal.type} submitLabel="Save food" onSubmit={handleCreateMeal} onCancel={() => setAddModal(null)} />
+          <MealEntryForm
+            defaultType={addModal.type}
+            submitLabel="Save food"
+            onEstimate={requestManualNutritionEstimate}
+            onSubmit={handleCreateMeal}
+            onCancel={() => setAddModal(null)}
+          />
         )}
       </Modal>
 

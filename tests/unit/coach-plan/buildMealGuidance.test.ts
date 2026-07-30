@@ -159,6 +159,24 @@ describe("buildMealGuidance", () => {
     );
   });
 
+  it("does not count unresolved meal logs in confirmed nutrition", () => {
+    const { result } = build([
+      mealLog("rice", "lunch", 200, 4),
+      mealLog("unresolved-soto", "lunch", 0, 0),
+    ]);
+
+    expect(result.lunch.confirmedConsumption).toMatchObject({
+      entryCount: 1,
+      nutrition: {
+        caloriesKcal: 200,
+        proteinG: 4,
+        carbohydrateG: 20,
+        fatG: 8,
+      },
+      sourceIds: ["meal-log:rice"],
+    });
+  });
+
   it("embeds Office Lunch Optimizer output only in lunch guidance", () => {
     const officeLunchPlan = generateOfficeLunchPlan(decision, context, {
       calories: 700,

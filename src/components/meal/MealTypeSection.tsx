@@ -5,7 +5,10 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatCalories, formatGrams } from "@/lib/utils/format";
-import { sumMacros } from "@/lib/utils/nutritionEstimates";
+import {
+  hasConfirmedMealNutrition,
+  sumMacros,
+} from "@/lib/utils/nutritionEstimates";
 import type { MealEntry, MealType } from "@/types/firestore";
 
 export interface MealTypeSectionProps {
@@ -29,7 +32,9 @@ export function MealTypeSection({
   onEdit,
   onDelete,
 }: MealTypeSectionProps) {
-  const subtotal = sumMacros(items.map((item) => item.macros));
+  const confirmedItems = items.filter(hasConfirmedMealNutrition);
+  const unresolvedCount = items.length - confirmedItems.length;
+  const subtotal = sumMacros(confirmedItems.map((item) => item.macros));
 
   return (
     <GlassCard padding="none" className="overflow-hidden">
@@ -37,11 +42,19 @@ export function MealTypeSection({
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
           {items.length > 0 && (
-            <p className="mt-0.5 text-xs text-ink-faint">
-              {formatCalories(subtotal.calories)} · P {formatGrams(subtotal.proteinG)} · C{" "}
-              {formatGrams(subtotal.carbsG)} · F {formatGrams(subtotal.fatG)}
-              {subtotal.fiberG ? ` · Fiber ${formatGrams(subtotal.fiberG)}` : ""}
-            </p>
+            <>
+              <p className="mt-0.5 text-xs text-ink-faint">
+                {formatCalories(subtotal.calories)} · P {formatGrams(subtotal.proteinG)} · C{" "}
+                {formatGrams(subtotal.carbsG)} · F {formatGrams(subtotal.fatG)}
+                {subtotal.fiberG ? ` · Fiber ${formatGrams(subtotal.fiberG)}` : ""}
+              </p>
+              {unresolvedCount > 0 && (
+                <p className="mt-1 text-xs font-medium text-amber">
+                  {unresolvedCount} item needs confirmed nutrition and is not
+                  included in this total.
+                </p>
+              )}
+            </>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -65,7 +78,9 @@ export function MealTypeSection({
         </div>
       ) : (
         <ul className="mt-3 divide-y divide-ink/8">
-          {items.map((meal) => (
+          {items.map((meal) => {
+            const nutritionConfirmed = hasConfirmedMealNutrition(meal);
+            return (
             <li key={meal.id} className="flex items-center justify-between gap-3 px-5 py-4">
               <button
                 type="button"
@@ -78,11 +93,17 @@ export function MealTypeSection({
                   {meal.quantity && <span className="text-xs text-ink-muted">· {meal.quantity}</span>}
                   {meal.isOfficeLunch && <Badge tone="rose">Office lunch</Badge>}
                 </div>
-                <p className="mt-0.5 text-xs text-ink-muted">
-                  {formatCalories(meal.macros.calories)} · P {formatGrams(meal.macros.proteinG)} · C{" "}
-                  {formatGrams(meal.macros.carbsG)} · F {formatGrams(meal.macros.fatG)}
-                  {meal.macros.fiberG ? ` · Fiber ${formatGrams(meal.macros.fiberG)}` : ""}
-                </p>
+                {nutritionConfirmed ? (
+                  <p className="mt-0.5 text-xs text-ink-muted">
+                    {formatCalories(meal.macros.calories)} · P {formatGrams(meal.macros.proteinG)} · C{" "}
+                    {formatGrams(meal.macros.carbsG)} · F {formatGrams(meal.macros.fatG)}
+                    {meal.macros.fiberG ? ` · Fiber ${formatGrams(meal.macros.fiberG)}` : ""}
+                  </p>
+                ) : (
+                  <p className="mt-0.5 text-xs font-medium text-amber">
+                    Nutrition unresolved · excluded from total
+                  </p>
+                )}
                 {meal.note && <p className="mt-0.5 text-xs text-ink-faint">{meal.note}</p>}
               </button>
               <div className="flex items-center gap-1">
@@ -102,7 +123,8 @@ export function MealTypeSection({
                 </button>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </GlassCard>

@@ -84,6 +84,28 @@ export interface MealMacro {
   fiberG: number | null;
 }
 
+export interface MealNutritionMacro {
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+}
+
+export type MealNutritionEstimateSource =
+  | "local-approved"
+  | "gemini-estimate"
+  | "manual-entry";
+
+export interface MealNutritionConfirmation {
+  status: "confirmed";
+  source: MealNutritionEstimateSource;
+  userConfirmed: true;
+  servingGrams: number | null;
+  assumptions: string[];
+  estimatedAt: ISODateString | null;
+  confirmedAt: ISODateString;
+}
+
 export interface MealEntry extends BaseDocument {
   userId: string;
   date: ISODateString;
@@ -92,6 +114,7 @@ export interface MealEntry extends BaseDocument {
   quantity: string | null;
   isOfficeLunch: boolean;
   macros: MealMacro;
+  nutritionConfirmation?: MealNutritionConfirmation;
   photoIds: string[];
   photoEstimate?: {
     source: "photo-estimate";

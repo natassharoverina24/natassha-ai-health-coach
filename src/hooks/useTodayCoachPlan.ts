@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   buildTodayCoachPlan,
   readTodayCoachPlanCache,
+  TODAY_COACH_PLAN_INVALIDATED_EVENT,
   type TodayCoachPlan,
   writeTodayCoachPlanCache,
 } from "@/lib/coach-plan";
@@ -76,6 +77,19 @@ export function useTodayCoachPlan(): UseTodayCoachPlanResult {
     return () => {
       active = false;
     };
+  }, [load]);
+
+  useEffect(() => {
+    const refreshAfterDataChange = () => void load(false);
+    window.addEventListener(
+      TODAY_COACH_PLAN_INVALIDATED_EVENT,
+      refreshAfterDataChange,
+    );
+    return () =>
+      window.removeEventListener(
+        TODAY_COACH_PLAN_INVALIDATED_EVENT,
+        refreshAfterDataChange,
+      );
   }, [load]);
 
   const refresh = useCallback(() => load(false), [load]);
