@@ -102,6 +102,7 @@ function planFixture(): TodayCoachPlan {
       value: { status: "not-applicable", reason: "no-retained-adaptive-insight" },
       sourceIds: ["adaptive"],
     },
+    adaptiveInsights: [],
     weeklyContext: null,
     dataAvailability: {
       decision: "available",
@@ -131,6 +132,7 @@ function planFixture(): TodayCoachPlan {
         motivations: { status: "empty" },
         timelineCompletions: { status: "empty" },
         activeDisruption: { status: "empty" },
+        adaptiveLearningHistory: { status: "empty" },
       },
       cache: { status: "empty" },
     },

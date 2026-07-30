@@ -9,6 +9,8 @@ import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { workoutsRepository } from "@/lib/db/workouts.repository";
 import { waistsRepository } from "@/lib/db/waists.repository";
 import { activeDisruptionsRepository } from "@/lib/db/activeDisruptions.repository";
+import { where } from "firebase/firestore";
+import { buildAdaptiveInsights } from "@/lib/adaptive-learning";
 import {
   applyAdaptiveAdjustments,
   generateDailyPlan,
@@ -160,6 +162,7 @@ function warningsFor(
     ["sleep", dataAvailability.sources.sleep],
     ["cycles", dataAvailability.sources.cycles],
     ["motivations", dataAvailability.sources.motivations],
+    ["adaptive learning history", dataAvailability.sources.adaptiveLearningHistory],
   ];
   for (const [source, availability] of optionalSources) {
     if (
@@ -207,6 +210,7 @@ export async function buildTodayCoachPlan(
     manualCompletionsResult,
     waistsResult,
     activeDisruptionResult,
+    adaptiveDisruptionsResult,
   ] =
     await Promise.all([
       loadDataSource(
@@ -249,6 +253,21 @@ export async function buildTodayCoachPlan(
               ),
             null,
             { isEmpty: (item) => item === null },
+          ),
+      options.adaptiveDisruptionHistory !== undefined
+        ? Promise.resolve({
+            status: options.adaptiveDisruptionHistory.length
+              ? "available" as const
+              : "empty" as const,
+            data: [...options.adaptiveDisruptionHistory],
+          })
+        : loadDataSource(
+            () =>
+              activeDisruptionsRepository.list([
+                where("userId", "==", userId),
+              ]),
+            [],
+            { isEmpty: (items) => items.length === 0 },
           ),
     ]);
   const mealLogs =
@@ -326,6 +345,21 @@ export async function buildTodayCoachPlan(
     },
     decision,
   });
+  const adaptiveInsights = buildAdaptiveInsights({
+    referenceDate: context.today,
+    proteinGoalG: context.proteinGoalG,
+    waterGoalMl: context.waterGoalMl,
+    workoutGoalMinPerDay: context.workoutGoalMinPerDay,
+    meals: sources.meals.status === "unavailable" ? null : sources.meals.data,
+    waterLogs:
+      sources.water.status === "unavailable" ? null : sources.water.data,
+    workouts:
+      sources.workouts.status === "unavailable" ? null : sources.workouts.data,
+    disruptions:
+      adaptiveDisruptionsResult.status === "unavailable"
+        ? null
+        : adaptiveDisruptionsResult.data,
+  });
 
   const dataAvailability: TodayCoachDataAvailability = {
     decision: "available",
@@ -360,6 +394,7 @@ export async function buildTodayCoachPlan(
       motivations: sourceAvailability(sources.motivations),
       timelineCompletions: sourceAvailability(manualCompletionsResult),
       activeDisruption: sourceAvailability(activeDisruptionResult),
+      adaptiveLearningHistory: sourceAvailability(adaptiveDisruptionsResult),
     },
     cache: { status: "empty" },
   };
@@ -425,6 +460,7 @@ export async function buildTodayCoachPlan(
             ]
           : ["planner.adaptive-adjustments"],
     },
+    adaptiveInsights,
     weeklyContext: weeklyContext
       ? {
           value: weeklyContext,

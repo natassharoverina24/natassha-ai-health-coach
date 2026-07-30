@@ -17,6 +17,7 @@ import type {
   ActiveDisruption,
   EmergencyDisruptionType,
 } from "@/types/firestore";
+import type { AdaptiveInsight } from "@/lib/adaptive-learning";
 
 export type CoachPlanAvailabilityStatus =
   | "available"
@@ -215,6 +216,7 @@ export interface TodayCoachDataAvailability {
     motivations: DataSourceAvailability;
     timelineCompletions: DataSourceAvailability;
     activeDisruption: DataSourceAvailability;
+    adaptiveLearningHistory: DataSourceAvailability;
   };
   cache: DataSourceAvailability;
 }
@@ -255,6 +257,7 @@ export interface TodayCoachPlan {
   officeLunch: TraceableValue<OfficeLunchPlan> | null;
   emergencyAdjustment: TraceableValue<EmergencyAdjustmentSummary> | null;
   adaptiveAdjustments: TraceableValue<AdaptiveAdjustmentResult>;
+  adaptiveInsights: AdaptiveInsight[];
   weeklyContext: TraceableValue<WeeklyMealPrepResult> | null;
   dataAvailability: TodayCoachDataAvailability;
   warnings: TodayCoachPlanWarning[];
@@ -265,6 +268,7 @@ export interface TodayCoachPlanOptions {
   officeLunchByDate?: Readonly<Record<string, boolean>>;
   ingredientCatalogue?: ApprovedIngredientCatalogue;
   activeDisruption?: ActiveDisruption | null;
+  adaptiveDisruptionHistory?: readonly ActiveDisruption[];
 }
 
 export const TODAY_COACH_MEAL_SLOTS: readonly MealSlot[] = [

@@ -43,7 +43,10 @@ jest.mock("@/lib/db/waists.repository", () => ({
   waistsRepository: { listForUser: jest.fn() },
 }));
 jest.mock("@/lib/db/activeDisruptions.repository", () => ({
-  activeDisruptionsRepository: { getActiveForUserByDate: jest.fn() },
+  activeDisruptionsRepository: {
+    getActiveForUserByDate: jest.fn(),
+    list: jest.fn(),
+  },
 }));
 
 const proteinInsight: EngineInsight = {
@@ -173,6 +176,9 @@ beforeEach(() => {
   (activeDisruptionsRepository.getActiveForUserByDate as jest.Mock)
     .mockReset()
     .mockResolvedValue(null);
+  (activeDisruptionsRepository.list as jest.Mock)
+    .mockReset()
+    .mockResolvedValue([]);
 });
 
 describe("buildTodayCoachPlan", () => {
@@ -207,6 +213,7 @@ describe("buildTodayCoachPlan", () => {
         adaptiveAdjustments: expect.objectContaining({
           sourceIds: expect.arrayContaining([hydrationInsight.id]),
         }),
+        adaptiveInsights: expect.any(Array),
         weeklyContext: expect.objectContaining({
           sourceIds: expect.any(Array),
         }),

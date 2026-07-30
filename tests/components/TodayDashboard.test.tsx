@@ -229,6 +229,7 @@ function makePlan(status: TodayCoachPlan["status"] = "ready"): TodayCoachPlan {
       },
       sourceIds: ["planner.adaptive-adjustments"],
     },
+    adaptiveInsights: [],
     weeklyContext: null,
     dataAvailability: {
       decision: "available",
@@ -258,6 +259,7 @@ function makePlan(status: TodayCoachPlan["status"] = "ready"): TodayCoachPlan {
         motivations: { status: "available" },
         timelineCompletions: { status: "available" },
         activeDisruption: { status: "empty" },
+        adaptiveLearningHistory: { status: "empty" },
       },
       cache: { status: "empty" },
     },

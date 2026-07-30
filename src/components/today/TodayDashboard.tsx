@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { PlansChangedCard } from "./PlansChangedCard";
+import { ThingsINoticedCard } from "./ThingsINoticedCard";
 
 export function TodayDashboard() {
   const { user } = useAuth();
@@ -204,6 +205,7 @@ export function TodayDashboard() {
       </div>
 
       <TodayMetrics plan={plan} quickWaterMl={quickWaterMl} />
+      <ThingsINoticedCard insights={plan.adaptiveInsights ?? []} />
       <TodayMotivation plan={plan} />
       <TodayQuickLog
         loggedWaterMl={quickWaterMl}
