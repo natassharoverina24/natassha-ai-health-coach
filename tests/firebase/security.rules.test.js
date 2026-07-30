@@ -12,6 +12,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  serverTimestamp,
   setDoc,
   updateDoc,
 } from "firebase/firestore";
@@ -88,17 +89,35 @@ async function seedOwnedMeal() {
 
 describe("Firestore ownership rules", () => {
   test("active disruption remains owner-only", async () => {
+    const ownerRef = doc(
+      firestoreFor(OWNER_ID),
+      ACTIVE_DISRUPTION_PATH,
+    );
     await assertSucceeds(
-      setDoc(doc(firestoreFor(OWNER_ID), ACTIVE_DISRUPTION_PATH), {
+      setDoc(ownerRef, {
         userId: OWNER_ID,
         date: "2026-07-29",
-        type: "migraine",
+        type: "working-late",
+        startedAt: "2026-07-29T08:00:00.000Z",
+        note: null,
         status: "active",
+        clearedAt: null,
+        expectedEndAt: "21:00",
+        affectedSlot: null,
+        affectedMealSlot: null,
+        skippedMealSlot: null,
+        skippedAt: null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       }),
     );
-    await assertFails(
-      getDoc(doc(firestoreFor(OTHER_ID), ACTIVE_DISRUPTION_PATH)),
+    await assertSucceeds(getDoc(ownerRef));
+    const otherRef = doc(
+      firestoreFor(OTHER_ID),
+      ACTIVE_DISRUPTION_PATH,
     );
+    await assertFails(getDoc(otherRef));
+    await assertFails(updateDoc(otherRef, { status: "cleared" }));
     await assertFails(
       setDoc(doc(firestoreFor(OTHER_ID), ACTIVE_DISRUPTION_PATH), {
         userId: OWNER_ID,
@@ -108,8 +127,10 @@ describe("Firestore ownership rules", () => {
       }),
     );
     await assertSucceeds(
-      updateDoc(doc(firestoreFor(OWNER_ID), ACTIVE_DISRUPTION_PATH), {
+      updateDoc(ownerRef, {
         status: "cleared",
+        clearedAt: "2026-07-29T09:00:00.000Z",
+        updatedAt: serverTimestamp(),
       }),
     );
   });

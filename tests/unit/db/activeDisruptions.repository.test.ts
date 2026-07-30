@@ -68,6 +68,16 @@ describe("activeDisruptionsRepository", () => {
     expect(validateActiveDisruptionInput(input)).toBe(false);
   });
 
+  it("rejects an unsupported disruption type before writing", async () => {
+    await expect(
+      activeDisruptionsRepository.setActive({
+        ...base,
+        type: "unsupported",
+      } as never),
+    ).rejects.toThrow("invalid-active-disruption");
+    expect(repositoryMock.create).not.toHaveBeenCalled();
+  });
+
   it("writes idempotently to one user-and-date document", async () => {
     const input = validInputs[1];
     const id = activeDisruptionDocumentId(input.userId, input.date);

@@ -89,6 +89,10 @@ values are intentionally client-visible; security rules enforce data access.
    firebase deploy --only firestore:rules,firestore:indexes
    ```
 
+   Application hosting does not publish Firestore rules. Deploy the rules
+   whenever a user-owned collection is added, including
+   `active_disruptions`; otherwise production correctly denies that new path.
+
 8. Restrict the Firebase Web API key to intended APIs and production origins
    without blocking Firebase Authentication.
 

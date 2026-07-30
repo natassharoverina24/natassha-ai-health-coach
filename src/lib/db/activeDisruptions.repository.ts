@@ -72,6 +72,24 @@ const MEAL_SLOTS: readonly MealType[] = [
   "dinner",
 ];
 
+function logDevelopmentFailure(
+  operation: "read" | "save" | "clear",
+  error: unknown,
+) {
+  if (process.env.NODE_ENV === "production") return;
+  const rawCode =
+    error && typeof error === "object" && "code" in error
+      ? String(error.code)
+      : "unknown";
+  const code = /^[a-z0-9-]+(?:\/[a-z0-9-]+)?$/i.test(rawCode)
+    ? rawCode
+    : "unknown";
+  console.error("[active-disruptions] operation failed", {
+    operation,
+    code,
+  });
+}
+
 export function activeDisruptionDocumentId(userId: string, date: string) {
   return [userId, date].map(encodeURIComponent).join("__");
 }
@@ -151,14 +169,19 @@ export const activeDisruptionsRepository = {
     userId: string,
     date: string,
   ): Promise<ActiveDisruption | null> {
-    const disruption = await base.get(
-      activeDisruptionDocumentId(userId, date),
-    );
-    return disruption?.userId === userId &&
-      disruption.date === date &&
-      disruption.status === "active"
-      ? disruption
-      : null;
+    try {
+      const disruption = await base.get(
+        activeDisruptionDocumentId(userId, date),
+      );
+      return disruption?.userId === userId &&
+        disruption.date === date &&
+        disruption.status === "active"
+        ? disruption
+        : null;
+    } catch (error) {
+      logDevelopmentFailure("read", error);
+      throw error;
+    }
   },
 
   async setActive(input: ActiveDisruptionInput): Promise<string> {
@@ -166,20 +189,30 @@ export const activeDisruptionsRepository = {
       throw new Error("invalid-active-disruption");
     }
     const id = activeDisruptionDocumentId(input.userId, input.date);
-    return base.create(documentFromInput(input), id);
+    try {
+      return await base.create(documentFromInput(input), id);
+    } catch (error) {
+      logDevelopmentFailure("save", error);
+      throw error;
+    }
   },
 
   async clear(userId: string, date: string, clearedAt: string): Promise<void> {
     const id = activeDisruptionDocumentId(userId, date);
-    const existing = await base.get(id);
-    if (
-      !existing ||
-      existing.userId !== userId ||
-      existing.date !== date ||
-      existing.status === "cleared"
-    ) {
-      return;
+    try {
+      const existing = await base.get(id);
+      if (
+        !existing ||
+        existing.userId !== userId ||
+        existing.date !== date ||
+        existing.status === "cleared"
+      ) {
+        return;
+      }
+      await base.update(id, { status: "cleared", clearedAt });
+    } catch (error) {
+      logDevelopmentFailure("clear", error);
+      throw error;
     }
-    await base.update(id, { status: "cleared", clearedAt });
   },
 };
