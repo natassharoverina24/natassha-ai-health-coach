@@ -87,29 +87,60 @@ async function seedOwnedMeal() {
   });
 }
 
+function activeDisruptionPayload(type, details = {}) {
+  return {
+    userId: OWNER_ID,
+    date: "2026-07-29",
+    type,
+    startedAt: "2026-07-29T08:00:00.000Z",
+    status: "active",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...details,
+  };
+}
+
 describe("Firestore ownership rules", () => {
-  test("active disruption remains owner-only", async () => {
+  test.each([
+    ["working-late", { expectedEndAt: "21:00" }],
+    ["migraine", {}],
+    ["feeling-unwell", {}],
+    ["pms", {}],
+    ["travelling", { affectedSlot: "lunch" }],
+    ["event-or-reception", { affectedMealSlot: "dinner" }],
+    ["missed-workout", {}],
+    [
+      "skipped-meal",
+      { skippedMealSlot: "breakfast", skippedAt: "08:00" },
+    ],
+  ])("owner creates exact %s disruption payload", async (type, details) => {
     const ownerRef = doc(
       firestoreFor(OWNER_ID),
       ACTIVE_DISRUPTION_PATH,
     );
     await assertSucceeds(
-      setDoc(ownerRef, {
-        userId: OWNER_ID,
-        date: "2026-07-29",
-        type: "working-late",
-        startedAt: "2026-07-29T08:00:00.000Z",
-        note: null,
-        status: "active",
-        clearedAt: null,
-        expectedEndAt: "21:00",
-        affectedSlot: null,
-        affectedMealSlot: null,
-        skippedMealSlot: null,
-        skippedAt: null,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }),
+      setDoc(ownerRef, activeDisruptionPayload(type, details)),
+    );
+  });
+
+  test("owner rules intentionally remain shape-agnostic", async () => {
+    await assertSucceeds(
+      setDoc(
+        doc(firestoreFor(OWNER_ID), ACTIVE_DISRUPTION_PATH),
+        activeDisruptionPayload("feeling-unwell", {
+          affectedSlot: null,
+        }),
+      ),
+    );
+  });
+
+  test("active disruption remains owner-only and can be cleared", async () => {
+    const ownerRef = doc(
+      firestoreFor(OWNER_ID),
+      ACTIVE_DISRUPTION_PATH,
+    );
+    await assertSucceeds(
+      setDoc(ownerRef, activeDisruptionPayload("feeling-unwell")),
     );
     await assertSucceeds(getDoc(ownerRef));
     const otherRef = doc(
@@ -120,10 +151,7 @@ describe("Firestore ownership rules", () => {
     await assertFails(updateDoc(otherRef, { status: "cleared" }));
     await assertFails(
       setDoc(doc(firestoreFor(OTHER_ID), ACTIVE_DISRUPTION_PATH), {
-        userId: OWNER_ID,
-        date: "2026-07-29",
-        type: "pms",
-        status: "active",
+        ...activeDisruptionPayload("pms"),
       }),
     );
     await assertSucceeds(

@@ -525,6 +525,33 @@ describe("Today dashboard", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
+  it("saves feeling-unwell without irrelevant optional fields", async () => {
+    const user = userEvent.setup();
+    render(<TodayDashboard />);
+
+    await user.selectOptions(
+      screen.getByLabelText("What changed?"),
+      "feeling-unwell",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Adjust today's plan" }),
+    );
+
+    await waitFor(() =>
+      expect(activeDisruptionsRepository.setActive).toHaveBeenCalledWith({
+        userId: "user-1",
+        date: "2026-07-29",
+        startedAt: expect.any(String),
+        type: "feeling-unwell",
+      }),
+    );
+    const submitted =
+      (activeDisruptionsRepository.setActive as jest.Mock).mock.calls[0][0];
+    expect(Object.keys(submitted).sort()).toEqual(
+      ["date", "startedAt", "type", "userId"].sort(),
+    );
+  });
+
   it("gives every Emergency Mode field a unique id and name", async () => {
     const user = userEvent.setup();
     render(<TodayDashboard />);

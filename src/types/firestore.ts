@@ -206,14 +206,14 @@ export interface ActiveDisruption extends BaseDocument {
   date: ISODateString;
   type: EmergencyDisruptionType;
   startedAt: ISODateString;
-  note: string | null;
+  note?: string | null;
   status: "active" | "cleared";
-  clearedAt: ISODateString | null;
-  expectedEndAt: string | null;
-  affectedSlot: EmergencyAffectedSlot | null;
-  affectedMealSlot: "lunch" | "dinner" | "snack" | null;
-  skippedMealSlot: MealType | null;
-  skippedAt: string | null;
+  clearedAt?: ISODateString | null;
+  expectedEndAt?: string | null;
+  affectedSlot?: EmergencyAffectedSlot | null;
+  affectedMealSlot?: "lunch" | "dinner" | "snack" | null;
+  skippedMealSlot?: MealType | null;
+  skippedAt?: string | null;
 }
 
 // -----------------------------------------------------------------------------

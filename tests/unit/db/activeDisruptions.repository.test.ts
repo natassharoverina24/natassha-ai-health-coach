@@ -47,6 +47,23 @@ const validInputs: ActiveDisruptionInput[] = [
     skippedAt: "08:00",
   },
 ];
+const commonPayloadKeys = [
+  "date",
+  "startedAt",
+  "status",
+  "type",
+  "userId",
+];
+const detailKeysByType: Record<string, string[]> = {
+  "working-late": ["expectedEndAt"],
+  migraine: [],
+  "feeling-unwell": [],
+  pms: [],
+  travelling: ["affectedSlot"],
+  "event-or-reception": ["affectedMealSlot"],
+  "missed-workout": [],
+  "skipped-meal": ["skippedAt", "skippedMealSlot"],
+};
 
 beforeEach(() => {
   repositoryMock.get.mockReset();
@@ -57,6 +74,69 @@ beforeEach(() => {
 describe("activeDisruptionsRepository", () => {
   it.each(validInputs)("accepts the $type owner contract", (input) => {
     expect(validateActiveDisruptionInput(input)).toBe(true);
+  });
+
+  it.each(validInputs)(
+    "writes only the exact allowed keys for $type",
+    async (input) => {
+      repositoryMock.create.mockResolvedValue(
+        activeDisruptionDocumentId(input.userId, input.date),
+      );
+
+      await activeDisruptionsRepository.setActive(input);
+
+      const payload = repositoryMock.create.mock.calls[0][0];
+      expect(Object.keys(payload).sort()).toEqual(
+        [...commonPayloadKeys, ...detailKeysByType[input.type]].sort(),
+      );
+      expect(Object.values(payload)).not.toContain(null);
+      expect(Object.values(payload)).not.toContain(undefined);
+      repositoryMock.create.mockReset();
+    },
+  );
+
+  it("writes the production feeling-unwell shape without optional keys", async () => {
+    repositoryMock.create.mockResolvedValue("user-1__2026-07-29");
+
+    await activeDisruptionsRepository.setActive({
+      ...base,
+      type: "feeling-unwell",
+    });
+
+    expect(repositoryMock.create).toHaveBeenCalledWith(
+      {
+        userId: "user-1",
+        date: "2026-07-29",
+        type: "feeling-unwell",
+        status: "active",
+        startedAt: "2026-07-29T08:00:00.000Z",
+      },
+      "user-1__2026-07-29",
+    );
+  });
+
+  it("rejects irrelevant optional input fields for feeling-unwell", () => {
+    expect(
+      validateActiveDisruptionInput({
+        ...base,
+        type: "feeling-unwell",
+        affectedSlot: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("includes a note only when it is non-empty", async () => {
+    repositoryMock.create.mockResolvedValue("user-1__2026-07-29");
+
+    await activeDisruptionsRepository.setActive({
+      ...base,
+      type: "feeling-unwell",
+      note: "  Rest day  ",
+    });
+
+    expect(repositoryMock.create.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ note: "Rest day" }),
+    );
   });
 
   it.each([
@@ -126,14 +206,8 @@ describe("activeDisruptionsRepository", () => {
         path: "active_disruptions/user-1__2026-07-29",
         docId: "user-1__2026-07-29",
         payloadKeys: [
-          "affectedMealSlot",
-          "affectedSlot",
-          "clearedAt",
           "date",
           "expectedEndAt",
-          "note",
-          "skippedAt",
-          "skippedMealSlot",
           "startedAt",
           "status",
           "type",

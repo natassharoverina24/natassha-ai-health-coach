@@ -71,6 +71,21 @@ const MEAL_SLOTS: readonly MealType[] = [
   "snack",
   "dinner",
 ];
+const COMMON_INPUT_KEYS = [
+  "userId",
+  "date",
+  "startedAt",
+  "type",
+  "note",
+] as const;
+
+function hasOnlyRelevantInputKeys(
+  input: Record<string, unknown>,
+  detailKeys: readonly string[] = [],
+): boolean {
+  const allowed = new Set<string>([...COMMON_INPUT_KEYS, ...detailKeys]);
+  return Object.keys(input).every((key) => allowed.has(key));
+}
 
 function logDevelopmentFailure(
   operation: "read" | "save" | "clear",
@@ -152,53 +167,63 @@ export function validateActiveDisruptionInput(
     return false;
   }
   if (input.type === "working-late") {
-    return typeof input.expectedEndAt === "string" &&
+    return hasOnlyRelevantInputKeys(input, ["expectedEndAt"]) &&
+      typeof input.expectedEndAt === "string" &&
       CLOCK.test(input.expectedEndAt);
   }
   if (input.type === "travelling") {
-    return AFFECTED_SLOTS.includes(
-      input.affectedSlot as EmergencyAffectedSlot,
+    return (
+      hasOnlyRelevantInputKeys(input, ["affectedSlot"]) &&
+      AFFECTED_SLOTS.includes(input.affectedSlot as EmergencyAffectedSlot)
     );
   }
   if (input.type === "event-or-reception") {
-    return ["lunch", "dinner", "snack"].includes(
-      String(input.affectedMealSlot),
+    return (
+      hasOnlyRelevantInputKeys(input, ["affectedMealSlot"]) &&
+      ["lunch", "dinner", "snack"].includes(
+        String(input.affectedMealSlot),
+      )
     );
   }
   if (input.type === "skipped-meal") {
     return (
+      hasOnlyRelevantInputKeys(input, ["skippedMealSlot", "skippedAt"]) &&
       MEAL_SLOTS.includes(input.skippedMealSlot as MealType) &&
       typeof input.skippedAt === "string" &&
       CLOCK.test(input.skippedAt)
     );
   }
-  return true;
+  return hasOnlyRelevantInputKeys(input);
 }
 
 function documentFromInput(input: ActiveDisruptionInput): Omit<
   ActiveDisruption,
   "id" | "createdAt" | "updatedAt"
 > {
-  return {
+  const payload: Omit<
+    ActiveDisruption,
+    "id" | "createdAt" | "updatedAt"
+  > = {
     userId: input.userId,
     date: input.date,
     type: input.type,
     startedAt: input.startedAt,
-    note: input.note?.trim() || null,
     status: "active",
-    clearedAt: null,
-    expectedEndAt:
-      input.type === "working-late" ? input.expectedEndAt : null,
-    affectedSlot:
-      input.type === "travelling" ? input.affectedSlot : null,
-    affectedMealSlot:
-      input.type === "event-or-reception"
-        ? input.affectedMealSlot
-        : null,
-    skippedMealSlot:
-      input.type === "skipped-meal" ? input.skippedMealSlot : null,
-    skippedAt: input.type === "skipped-meal" ? input.skippedAt : null,
   };
+  const note = input.note?.trim();
+  if (note) payload.note = note;
+
+  if (input.type === "working-late") {
+    payload.expectedEndAt = input.expectedEndAt;
+  } else if (input.type === "travelling") {
+    payload.affectedSlot = input.affectedSlot;
+  } else if (input.type === "event-or-reception") {
+    payload.affectedMealSlot = input.affectedMealSlot;
+  } else if (input.type === "skipped-meal") {
+    payload.skippedMealSlot = input.skippedMealSlot;
+    payload.skippedAt = input.skippedAt;
+  }
+  return payload;
 }
 
 export const activeDisruptionsRepository = {
