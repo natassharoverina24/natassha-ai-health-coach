@@ -30,6 +30,101 @@ service cloud.firestore {
         && request.resource.data.userId == resource.data.userId;
     }
 
+    function activeDisruptionOwnerAndId(disruptionId) {
+      return request.auth != null
+        && request.auth.uid == request.resource.data.userId
+        && disruptionId
+          == request.resource.data.userId
+            + "__"
+            + request.resource.data.date;
+    }
+
+    function activeDisruptionCommonFieldsAreValid() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          "userId", "date", "type", "status", "startedAt"
+        ])
+        && data.userId is string
+        && data.date is string
+        && data.startedAt is string
+        && data.type in [
+          "working-late",
+          "migraine",
+          "feeling-unwell",
+          "pms",
+          "travelling",
+          "event-or-reception",
+          "missed-workout",
+          "skipped-meal"
+        ]
+        && data.status in ["active", "cleared"]
+        && (!data.keys().hasAny(["note"])
+          || (data.note is string
+            && data.note.size() > 0
+            && data.note.size() <= 240))
+        && (!data.keys().hasAny(["createdAt"])
+          || data.createdAt is timestamp)
+        && (!data.keys().hasAny(["updatedAt"])
+          || data.updatedAt is timestamp);
+    }
+
+    function activeDisruptionTypeFieldsAreValid() {
+      let data = request.resource.data;
+      return
+        (data.type == "working-late"
+          && data.keys().hasOnly([
+            "userId", "date", "type", "status", "startedAt", "note",
+            "expectedEndAt", "clearedAt", "createdAt", "updatedAt"
+          ])
+          && data.expectedEndAt is string)
+        || (data.type == "travelling"
+          && data.keys().hasOnly([
+            "userId", "date", "type", "status", "startedAt", "note",
+            "affectedSlot", "clearedAt", "createdAt", "updatedAt"
+          ])
+          && data.affectedSlot in [
+            "breakfast", "lunch", "snack", "dinner", "workout"
+          ])
+        || (data.type == "event-or-reception"
+          && data.keys().hasOnly([
+            "userId", "date", "type", "status", "startedAt", "note",
+            "affectedMealSlot", "clearedAt", "createdAt", "updatedAt"
+          ])
+          && data.affectedMealSlot in ["lunch", "dinner", "snack"])
+        || (data.type == "skipped-meal"
+          && data.keys().hasOnly([
+            "userId", "date", "type", "status", "startedAt", "note",
+            "skippedMealSlot", "skippedAt", "clearedAt",
+            "createdAt", "updatedAt"
+          ])
+          && data.skippedMealSlot in [
+            "breakfast", "lunch", "snack", "dinner"
+          ]
+          && data.skippedAt is string)
+        || (data.type in [
+            "migraine", "feeling-unwell", "pms", "missed-workout"
+          ]
+          && data.keys().hasOnly([
+            "userId", "date", "type", "status", "startedAt", "note",
+            "clearedAt", "createdAt", "updatedAt"
+          ]));
+    }
+
+    function activeDisruptionStatusFieldsAreValid() {
+      let data = request.resource.data;
+      return (data.status == "active"
+          && !data.keys().hasAny(["clearedAt"]))
+        || (data.status == "cleared"
+          && data.clearedAt is string);
+    }
+
+    function validActiveDisruption(disruptionId) {
+      return activeDisruptionOwnerAndId(disruptionId)
+        && activeDisruptionCommonFieldsAreValid()
+        && activeDisruptionTypeFieldsAreValid()
+        && activeDisruptionStatusFieldsAreValid();
+    }
+
     // users/{uid} — profile document, id === uid
     match /users/{userId} {
       allow read, write: if isOwner(userId);
@@ -92,10 +187,14 @@ service cloud.firestore {
       allow update: if ownsUpdatedDoc();
     }
 
-    match /active_disruptions/{docId} {
+    match /active_disruptions/{disruptionId} {
       allow read, delete: if ownsExistingDoc();
-      allow create: if ownsIncomingDoc();
-      allow update: if ownsUpdatedDoc();
+      allow create: if request.resource.data.status == "active"
+        && validActiveDisruption(disruptionId);
+      allow update: if ownsUpdatedDoc()
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.date == resource.data.date
+        && validActiveDisruption(disruptionId);
     }
 
     match /workouts/{docId} {

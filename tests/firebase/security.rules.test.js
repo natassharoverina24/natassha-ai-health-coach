@@ -25,6 +25,10 @@ import {
 const PROJECT_ID = "demo-natassha-health-coach";
 const OWNER_ID = "owner-user";
 const OTHER_ID = "other-user";
+const PRODUCTION_OWNER_ID = "Qkdwr5Jl9pe3LW6aeftVcFFkwdb2";
+const PRODUCTION_DATE = "2026-07-30";
+const PRODUCTION_ACTIVE_DISRUPTION_PATH =
+  `active_disruptions/${PRODUCTION_OWNER_ID}__${PRODUCTION_DATE}`;
 const MEAL_PATH = "meals/owned-meal";
 const TIMELINE_COMPLETION_PATH =
   "timeline_completions/owner-user__2026-07-29__sleepPreparation";
@@ -101,6 +105,83 @@ function activeDisruptionPayload(type, details = {}) {
 }
 
 describe("Firestore ownership rules", () => {
+  test("production owner creates exact feeling-unwell payload", async () => {
+    await assertSucceeds(
+      setDoc(
+        doc(
+          firestoreFor(PRODUCTION_OWNER_ID),
+          PRODUCTION_ACTIVE_DISRUPTION_PATH,
+        ),
+        {
+          userId: PRODUCTION_OWNER_ID,
+          date: PRODUCTION_DATE,
+          type: "feeling-unwell",
+          status: "active",
+          startedAt: "2026-07-30T12:00:00.000Z",
+        },
+      ),
+    );
+  });
+
+  test("another user cannot create the production disruption payload", async () => {
+    await assertFails(
+      setDoc(
+        doc(
+          firestoreFor(OTHER_ID),
+          PRODUCTION_ACTIVE_DISRUPTION_PATH,
+        ),
+        {
+          userId: PRODUCTION_OWNER_ID,
+          date: PRODUCTION_DATE,
+          type: "feeling-unwell",
+          status: "active",
+          startedAt: "2026-07-30T12:00:00.000Z",
+        },
+      ),
+    );
+  });
+
+  test("production owner can clear the same disruption", async () => {
+    const ownerRef = doc(
+      firestoreFor(PRODUCTION_OWNER_ID),
+      PRODUCTION_ACTIVE_DISRUPTION_PATH,
+    );
+    await assertSucceeds(
+      setDoc(ownerRef, {
+        userId: PRODUCTION_OWNER_ID,
+        date: PRODUCTION_DATE,
+        type: "feeling-unwell",
+        status: "active",
+        startedAt: "2026-07-30T12:00:00.000Z",
+      }),
+    );
+
+    await assertSucceeds(
+      updateDoc(ownerRef, {
+        status: "cleared",
+        clearedAt: "2026-07-30T13:00:00.000Z",
+      }),
+    );
+  });
+
+  test("active disruption doc id must match owner and date", async () => {
+    await assertFails(
+      setDoc(
+        doc(
+          firestoreFor(PRODUCTION_OWNER_ID),
+          "active_disruptions/wrong-id",
+        ),
+        {
+          userId: PRODUCTION_OWNER_ID,
+          date: PRODUCTION_DATE,
+          type: "feeling-unwell",
+          status: "active",
+          startedAt: "2026-07-30T12:00:00.000Z",
+        },
+      ),
+    );
+  });
+
   test.each([
     ["working-late", { expectedEndAt: "21:00" }],
     ["migraine", {}],
@@ -123,8 +204,8 @@ describe("Firestore ownership rules", () => {
     );
   });
 
-  test("owner rules intentionally remain shape-agnostic", async () => {
-    await assertSucceeds(
+  test("feeling-unwell rejects irrelevant optional fields", async () => {
+    await assertFails(
       setDoc(
         doc(firestoreFor(OWNER_ID), ACTIVE_DISRUPTION_PATH),
         activeDisruptionPayload("feeling-unwell", {
