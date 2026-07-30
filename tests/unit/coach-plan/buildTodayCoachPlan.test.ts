@@ -1,5 +1,5 @@
 import {
-  buildCoachDecision,
+  buildCoachDecisionWithAvailability,
   buildPlannerUserContext,
 } from "@/lib/ai/contextBuilder";
 import {
@@ -21,7 +21,7 @@ import {
 } from "@/lib/planner";
 
 jest.mock("@/lib/ai/contextBuilder", () => ({
-  buildCoachDecision: jest.fn(),
+  buildCoachDecisionWithAvailability: jest.fn(),
   buildPlannerUserContext: jest.fn(),
 }));
 jest.mock("@/lib/db/meals.repository", () => ({
@@ -107,8 +107,31 @@ const completeOptions: TodayCoachPlanOptions = {
   },
 };
 
+const decisionSources = {
+  profile: { status: "available", data: {} },
+  settings: { status: "empty", data: null },
+  currentDateTime: {
+    status: "available",
+    data: {
+      now: decision.generatedAt,
+      today: context.today,
+      currentHour: context.currentHour,
+      currentMinute: context.currentMinute,
+    },
+  },
+  weights: { status: "empty", data: [] },
+  meals: { status: "empty", data: [] },
+  water: { status: "empty", data: [] },
+  workouts: { status: "empty", data: [] },
+  sleep: { status: "empty", data: [] },
+  cycles: { status: "empty", data: [] },
+  motivations: { status: "empty", data: [] },
+};
+
 beforeEach(() => {
-  (buildCoachDecision as jest.Mock).mockReset().mockResolvedValue(decision);
+  (buildCoachDecisionWithAvailability as jest.Mock)
+    .mockReset()
+    .mockResolvedValue({ decision, sources: decisionSources });
   (buildPlannerUserContext as jest.Mock).mockReset().mockResolvedValue(context);
   (mealsRepository.listForUserByDate as jest.Mock)
     .mockReset()
@@ -160,11 +183,13 @@ describe("buildTodayCoachPlan", () => {
           adaptiveAdjustments: "available",
           weeklyContext: "available",
           timelineStatus: {
-            mealLogs: "available",
-            waterLogs: "available",
-            workoutLogs: "available",
-            manualCompletions: "available",
+            mealLogs: "empty",
+            waterLogs: "empty",
+            workoutLogs: "empty",
+            manualCompletions: "empty",
           },
+          sources: expect.any(Object),
+          cache: { status: "empty" },
         },
         warnings: [],
       }),
@@ -291,6 +316,46 @@ describe("buildTodayCoachPlan", () => {
       }),
     );
     expect(JSON.stringify(result)).not.toMatch(/private Firebase detail/i);
+  });
+
+  it("returns a partial plan when an optional decision source is unavailable", async () => {
+    (buildCoachDecisionWithAvailability as jest.Mock).mockResolvedValueOnce({
+      decision,
+      sources: {
+        ...decisionSources,
+        water: {
+          status: "unavailable",
+          data: [],
+          errorCode: "network",
+        },
+      },
+    });
+
+    const result = await buildTodayCoachPlan("user-1");
+
+    expect(result.status).toBe("partial");
+    expect(result.timeline).toHaveLength(6);
+    expect(result.dataAvailability.sources.water).toEqual({
+      status: "unavailable",
+      errorCode: "network",
+    });
+    expect(result.warnings).toContainEqual(
+      expect.objectContaining({
+        code: "optional-source-unavailable",
+        sourceIds: ["repository.water"],
+      }),
+    );
+    expect(JSON.stringify(result)).not.toMatch(/firebase|console|private/i);
+  });
+
+  it("still rejects when the required profile cannot be verified", async () => {
+    (buildCoachDecisionWithAvailability as jest.Mock).mockRejectedValueOnce(
+      new Error("The user profile is required to prepare today's plan."),
+    );
+
+    await expect(buildTodayCoachPlan("user-1")).rejects.toThrow(
+      "user profile is required",
+    );
   });
 
   it("does not fabricate decisions, meal nutrition, or medical content", async () => {

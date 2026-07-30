@@ -1,5 +1,5 @@
 import {
-  buildCoachDecision,
+  buildCoachDecisionWithAvailability,
   buildPlannerUserContext,
 } from "@/lib/ai/contextBuilder";
 import type { CoachDecision } from "@/lib/engines/decisionEngine";
@@ -30,6 +30,11 @@ import {
   type TraceableValue,
 } from "./types";
 import { reconcileTimelineStatus } from "./reconcileTimelineStatus";
+import {
+  loadDataSource,
+  sourceAvailability,
+  type DataSourceAvailability,
+} from "./availability";
 
 const MEAL_RELEVANT_INSIGHT_IDS = new Set([
   "migraine.active_symptom_care",
@@ -172,6 +177,32 @@ function warningsFor(
       sourceIds: ["repository.manual"],
     });
   }
+  const optionalSources: Array<
+    [
+      string,
+      DataSourceAvailability,
+    ]
+  > = [
+    ["weights", dataAvailability.sources.weights],
+    ["meals", dataAvailability.sources.meals],
+    ["water", dataAvailability.sources.water],
+    ["workouts", dataAvailability.sources.workouts],
+    ["sleep", dataAvailability.sources.sleep],
+    ["cycles", dataAvailability.sources.cycles],
+    ["motivations", dataAvailability.sources.motivations],
+  ];
+  for (const [source, availability] of optionalSources) {
+    if (
+      availability.status === "unavailable" ||
+      availability.status === "stale"
+    ) {
+      warnings.push({
+        code: "optional-source-unavailable",
+        message: `${source[0].toUpperCase()}${source.slice(1)} data could not be refreshed, so related coaching was safely omitted.`,
+        sourceIds: [`repository.${source}`],
+      });
+    }
+  }
   return warnings;
 }
 
@@ -180,12 +211,6 @@ function buildTraceSourceIds(
   decision: CoachDecision,
 ): string[] {
   return [prefix, ...decision.insights.map((insight) => insight.id)];
-}
-
-function fulfilledValue<T>(
-  result: PromiseSettledResult<T>,
-): T | null {
-  return result.status === "fulfilled" ? result.value : null;
 }
 
 /**
@@ -197,29 +222,52 @@ export async function buildTodayCoachPlan(
   userId: string,
   options: TodayCoachPlanOptions = {},
 ): Promise<TodayCoachPlan> {
-  const [decision, context] = await Promise.all([
-    buildCoachDecision(userId),
+  const [decisionResult, context] = await Promise.all([
+    buildCoachDecisionWithAvailability(userId),
     buildPlannerUserContext(userId),
   ]);
+  const { decision, sources } = decisionResult;
   const dailyPlan = generateDailyPlan(decision, context);
   const mealPlan = generateMealPlan(decision, context);
   const meals = buildMeals(decision, mealPlan);
 
-  const [
-    mealLogsResult,
-    waterLogsResult,
-    workoutLogsResult,
-    manualCompletionsResult,
-  ] = await Promise.allSettled([
-    mealsRepository.listForUserByDate(userId, context.today),
-    waterLogsRepository.listForUserByDate(userId, context.today),
-    workoutsRepository.listForUserByDate(userId, context.today),
-    timelineCompletionsRepository.listForUserByDate(userId, context.today),
+  const [mealLogsResult, waterLogsResult, workoutLogsResult, manualCompletionsResult] =
+    await Promise.all([
+      loadDataSource(
+        () => mealsRepository.listForUserByDate(userId, context.today),
+        [],
+        { isEmpty: (items) => items.length === 0 },
+      ),
+      loadDataSource(
+        () => waterLogsRepository.listForUserByDate(userId, context.today),
+        [],
+        { isEmpty: (items) => items.length === 0 },
+      ),
+      loadDataSource(
+        () => workoutsRepository.listForUserByDate(userId, context.today),
+        [],
+        { isEmpty: (items) => items.length === 0 },
+      ),
+      loadDataSource(
+        () =>
+          timelineCompletionsRepository.listForUserByDate(
+            userId,
+            context.today,
+          ),
+        [],
+        { isEmpty: (items) => items.length === 0 },
+      ),
   ]);
-  const mealLogs = fulfilledValue(mealLogsResult);
-  const waterLogs = fulfilledValue(waterLogsResult);
-  const workoutLogs = fulfilledValue(workoutLogsResult);
-  const manualCompletions = fulfilledValue(manualCompletionsResult);
+  const mealLogs =
+    mealLogsResult.status === "unavailable" ? null : mealLogsResult.data;
+  const waterLogs =
+    waterLogsResult.status === "unavailable" ? null : waterLogsResult.data;
+  const workoutLogs =
+    workoutLogsResult.status === "unavailable" ? null : workoutLogsResult.data;
+  const manualCompletions =
+    manualCompletionsResult.status === "unavailable"
+      ? null
+      : manualCompletionsResult.data;
   const timeline = reconcileTimelineStatus({
     date: context.today,
     currentDate: context.today,
@@ -277,12 +325,25 @@ export async function buildTodayCoachPlan(
     adaptiveAdjustments: availabilityFromResult(adaptiveAdjustments),
     weeklyContext: availabilityFromResult(weeklyContext),
     timelineStatus: {
-      mealLogs: mealLogs === null ? "unavailable" : "available",
-      waterLogs: waterLogs === null ? "unavailable" : "available",
-      workoutLogs: workoutLogs === null ? "unavailable" : "available",
-      manualCompletions:
-        manualCompletions === null ? "unavailable" : "available",
+      mealLogs: mealLogsResult.status,
+      waterLogs: waterLogsResult.status,
+      workoutLogs: workoutLogsResult.status,
+      manualCompletions: manualCompletionsResult.status,
     },
+    sources: {
+      profile: sourceAvailability(sources.profile),
+      settings: sourceAvailability(sources.settings),
+      currentDateTime: sourceAvailability(sources.currentDateTime),
+      weights: sourceAvailability(sources.weights),
+      meals: sourceAvailability(sources.meals),
+      water: sourceAvailability(sources.water),
+      workouts: sourceAvailability(sources.workouts),
+      sleep: sourceAvailability(sources.sleep),
+      cycles: sourceAvailability(sources.cycles),
+      motivations: sourceAvailability(sources.motivations),
+      timelineCompletions: sourceAvailability(manualCompletionsResult),
+    },
+    cache: { status: "empty" },
   };
   const warnings = warningsFor(dataAvailability);
 

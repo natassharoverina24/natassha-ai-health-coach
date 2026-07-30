@@ -5,8 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   buildTodayCoachPlan,
+  readTodayCoachPlanCache,
   type TodayCoachPlan,
+  writeTodayCoachPlanCache,
 } from "@/lib/coach-plan";
+import { todayISODate } from "@/lib/utils/format";
 
 export interface UseTodayCoachPlanResult {
   plan: TodayCoachPlan | null;
@@ -39,12 +42,20 @@ export function useTodayCoachPlan(): UseTodayCoachPlanResult {
       }
 
       const activeRequest = ++requestId.current;
-      if (initial) setLoading(true);
-      else setRefreshing(true);
+      if (initial) {
+        const cachedPlan = readTodayCoachPlanCache(userId, todayISODate());
+        if (cachedPlan) setPlan(cachedPlan);
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
       setError(null);
       try {
         const nextPlan = await buildTodayCoachPlan(userId);
-        if (activeRequest === requestId.current) setPlan(nextPlan);
+        if (activeRequest === requestId.current) {
+          setPlan(nextPlan);
+          writeTodayCoachPlanCache(userId, nextPlan);
+        }
       } catch {
         if (activeRequest === requestId.current) setError(FRIENDLY_ERROR);
       } finally {

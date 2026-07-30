@@ -145,6 +145,20 @@ function makePlan(status: TodayCoachPlan["status"] = "ready"): TodayCoachPlan {
         workoutLogs: "available",
         manualCompletions: "available",
       },
+      sources: {
+        profile: { status: "available" },
+        settings: { status: "available" },
+        currentDateTime: { status: "available" },
+        weights: { status: "available" },
+        meals: { status: "available" },
+        water: { status: "available" },
+        workouts: { status: "available" },
+        sleep: { status: "available" },
+        cycles: { status: "available" },
+        motivations: { status: "available" },
+        timelineCompletions: { status: "available" },
+      },
+      cache: { status: "empty" },
     },
     warnings:
       status === "partial"

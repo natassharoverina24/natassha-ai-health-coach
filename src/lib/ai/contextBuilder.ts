@@ -31,6 +31,12 @@ import {
 } from "@/lib/coach";
 import type { DailyGoals } from "@/lib/coach/types";
 import type { PlannerUserContext } from "@/lib/planner";
+import {
+  loadDataSource,
+  sourceCanInformDecisions,
+  type DataSourceResult,
+  type SafeDataErrorCode,
+} from "@/lib/coach-plan/availability";
 
 import {
   runBehaviorEngine,
@@ -53,6 +59,69 @@ import {
 import type { MealType, UserProfile } from "@/types/firestore";
 
 const HISTORY_WINDOW_DAYS = 28;
+
+type ProfileSource = DataSourceResult<UserProfile | null>;
+type SettingsSource = DataSourceResult<
+  Awaited<ReturnType<typeof settingsRepository.getForUser>>
+>;
+type WeightsSource = DataSourceResult<
+  Awaited<ReturnType<typeof weightsRepository.listForUser>>
+>;
+type MealsSource = DataSourceResult<
+  Awaited<ReturnType<typeof mealsRepository.listForUserRange>>
+>;
+type WaterSource = DataSourceResult<
+  Awaited<ReturnType<typeof waterLogsRepository.listForUser>>
+>;
+type WorkoutsSource = DataSourceResult<
+  Awaited<ReturnType<typeof workoutsRepository.listForUser>>
+>;
+type SleepSource = DataSourceResult<
+  Awaited<ReturnType<typeof sleepLogsRepository.listForUser>>
+>;
+type CyclesSource = DataSourceResult<
+  Awaited<ReturnType<typeof cyclesRepository.listForUser>>
+>;
+type MotivationsSource = DataSourceResult<
+  Awaited<ReturnType<typeof motivationsRepository.listActiveForUser>>
+>;
+
+export interface CoachDecisionDataSources {
+  profile: ProfileSource;
+  settings: SettingsSource;
+  currentDateTime: DataSourceResult<{
+    now: string;
+    today: string;
+    currentHour: number;
+    currentMinute: number;
+  }>;
+  weights: WeightsSource;
+  meals: MealsSource;
+  water: WaterSource;
+  workouts: WorkoutsSource;
+  sleep: SleepSource;
+  cycles: CyclesSource;
+  motivations: MotivationsSource;
+}
+
+export interface CoachDecisionWithAvailability {
+  decision: CoachDecision;
+  sources: CoachDecisionDataSources;
+}
+
+export class RequiredCoachDataError extends Error {
+  constructor(
+    public readonly source: "profile" | "settings",
+    public readonly errorCode: SafeDataErrorCode,
+  ) {
+    super(
+      source === "profile"
+        ? "The user profile is required to prepare today's plan."
+        : "Verified settings or default goals are required to prepare today's plan.",
+    );
+    this.name = "RequiredCoachDataError";
+  }
+}
 
 export interface AICoachContext {
   profile: UserProfile;
@@ -91,28 +160,98 @@ export async function buildPlannerUserContext(
 }
 
 /** Fetches everything the engines need and shapes it into their inputs; this is intentionally the only "wide" function in the file — see the individual `run*Engine` calls for what actually decides anything. */
-export async function buildCoachDecision(userId: string): Promise<CoachDecision> {
+export async function buildCoachDecisionWithAvailability(
+  userId: string,
+): Promise<CoachDecisionWithAvailability> {
   const today = todayISODate();
   const now = new Date();
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
 
-  const [profile, settings, weights, meals, waterLogs, workouts, sleepLogs, cycles, motivations] =
-    await Promise.all([
-      usersRepository.getByUid(userId),
-      settingsRepository.getForUser(userId),
-      weightsRepository.listForUser(userId, 90),
-      mealsRepository.listForUserRange(userId, 400),
-      waterLogsRepository.listForUser(userId, 400),
-      workoutsRepository.listForUser(userId, 200),
-      sleepLogsRepository.listForUser(userId, 90),
-      cyclesRepository.listForUser(userId),
-      motivationsRepository.listActiveForUser(userId),
-    ]);
-
-  if (!profile) {
-    throw new Error(`No profile found for user ${userId}`);
+  const profileSource = await loadDataSource(
+    () => usersRepository.getByUid(userId),
+    null,
+    {
+      isEmpty: (profile) => profile === null,
+      updatedAt: (profile) => profile?.updatedAt || undefined,
+    },
+  );
+  if (profileSource.status === "unavailable") {
+    throw new RequiredCoachDataError(
+      "profile",
+      profileSource.errorCode ?? "unknown",
+    );
   }
+  if (!profileSource.data) {
+    throw new RequiredCoachDataError("profile", "missing-profile");
+  }
+  const profile = profileSource.data;
+
+  const settingsSource = await loadDataSource(
+    () => settingsRepository.getForUser(userId),
+    null,
+    {
+      isEmpty: (settings) => settings === null,
+      updatedAt: (settings) => settings?.updatedAt || undefined,
+    },
+  );
+  if (settingsSource.status === "unavailable") {
+    throw new RequiredCoachDataError(
+      "settings",
+      settingsSource.errorCode ?? "unknown",
+    );
+  }
+  const settings = settingsSource.data;
+
+  const [
+    weightsSource,
+    mealsSource,
+    waterSource,
+    workoutsSource,
+    sleepSource,
+    cyclesSource,
+    motivationsSource,
+  ] = await Promise.all([
+    loadDataSource(() => weightsRepository.listForUser(userId, 90), [], {
+      isEmpty: (items) => items.length === 0,
+      updatedAt: latestRecordUpdate,
+    }),
+    loadDataSource(() => mealsRepository.listForUserRange(userId, 400), [], {
+      isEmpty: (items) => items.length === 0,
+      updatedAt: latestRecordUpdate,
+    }),
+    loadDataSource(() => waterLogsRepository.listForUser(userId, 400), [], {
+      isEmpty: (items) => items.length === 0,
+      updatedAt: latestRecordUpdate,
+    }),
+    loadDataSource(() => workoutsRepository.listForUser(userId, 200), [], {
+      isEmpty: (items) => items.length === 0,
+      updatedAt: latestRecordUpdate,
+    }),
+    loadDataSource(() => sleepLogsRepository.listForUser(userId, 90), [], {
+      isEmpty: (items) => items.length === 0,
+      updatedAt: latestRecordUpdate,
+    }),
+    loadDataSource(() => cyclesRepository.listForUser(userId), [], {
+      isEmpty: (items) => items.length === 0,
+      updatedAt: latestRecordUpdate,
+    }),
+    loadDataSource(
+      () => motivationsRepository.listActiveForUser(userId),
+      [],
+      {
+        isEmpty: (items) => items.length === 0,
+        updatedAt: latestRecordUpdate,
+      },
+    ),
+  ]);
+  const weights = weightsSource.data;
+  const meals = mealsSource.data;
+  const waterLogs = waterSource.data;
+  const workouts = workoutsSource.data;
+  const sleepLogs = sleepSource.data;
+  const cycles = cyclesSource.data;
+  const motivations = motivationsSource.data;
 
   const goals: DailyGoals = {
     calorieGoal: settings?.calorieGoal ?? DEFAULT_GOALS.calorieGoal,
@@ -140,29 +279,40 @@ export async function buildCoachDecision(userId: string): Promise<CoachDecision>
   const todaysMealGapHours = largestGapHours(todaysMealTimestamps);
 
   // --- Behavior ---
-  const behaviorInsights = runBehaviorEngine({ dailyScores, hasLoggedToday, currentHour });
+  const behaviorInsights =
+    sourceCanInformDecisions(mealsSource) &&
+    sourceCanInformDecisions(waterSource) &&
+    sourceCanInformDecisions(workoutsSource) &&
+    sourceCanInformDecisions(sleepSource) &&
+    sourceCanInformDecisions(weightsSource)
+      ? runBehaviorEngine({ dailyScores, hasLoggedToday, currentHour })
+      : [];
 
   // --- Nutrition ---
-  const nutritionInsights = runNutritionEngine({
-    today: todayInputs,
-    goals,
-    todaysMealTimestamps,
-    lunchProvidedByOffice: profile.lunchProvidedByOffice,
-    currentHour,
-  });
+  const nutritionInsights = sourceCanInformDecisions(mealsSource)
+    ? runNutritionEngine({
+        today: todayInputs,
+        goals,
+        todaysMealTimestamps,
+        lunchProvidedByOffice: profile.lunchProvidedByOffice,
+        currentHour,
+      })
+    : [];
 
   // --- Exercise ---
   const recentWorkoutNames = workouts
     .filter((w) => historyDates.includes(w.date))
     .map((w) => w.name);
   const daysSinceLastWorkout = daysSinceMostRecent(workouts.map((w) => w.date), today);
-  const exerciseInsights = runExerciseEngine({
-    todayWorkoutMinutes: todayInputs.workoutMinutes,
-    workoutGoalMinPerDay: goals.workoutGoalMinPerDay,
-    recentWorkoutNames,
-    daysSinceLastWorkout,
-    currentHour,
-  });
+  const exerciseInsights = sourceCanInformDecisions(workoutsSource)
+    ? runExerciseEngine({
+        todayWorkoutMinutes: todayInputs.workoutMinutes,
+        workoutGoalMinPerDay: goals.workoutGoalMinPerDay,
+        recentWorkoutNames,
+        daysSinceLastWorkout,
+        currentHour,
+      })
+    : [];
 
   // --- Maintenance ---
   const currentWeightKg = weights[0]?.weightKg ?? profile.startWeightKg;
@@ -172,26 +322,44 @@ export async function buildCoachDecision(userId: string): Promise<CoachDecision>
     weekWindows,
   ).filter((c): c is number => c != null);
   const latestWeeklyChangeKg = weeklyChanges.length > 0 ? weeklyChanges[weeklyChanges.length - 1] : null;
-  const maintenanceInsights = runMaintenanceEngine({
-    currentWeightKg,
-    goalWeightKg: profile.goalWeightKg,
-    latestWeeklyChangeKg,
-    recentWeeklyChangesKg: weeklyChanges,
-  });
+  const maintenanceInsights = sourceCanInformDecisions(weightsSource)
+    ? runMaintenanceEngine({
+        currentWeightKg,
+        goalWeightKg: profile.goalWeightKg,
+        latestWeeklyChangeKg,
+        recentWeeklyChangesKg: weeklyChanges,
+      })
+    : [];
 
   // --- WHY ---
-  const whyInsights = runWhyEngine({
-    motivations: motivations.map((m) => ({ id: m.id, text: m.text, lastReferencedAt: m.lastReferencedAt })),
-    now: now.toISOString(),
-  });
+  const whyInsights = sourceCanInformDecisions(motivationsSource)
+    ? runWhyEngine({
+        motivations: motivations.map((m) => ({
+          id: m.id,
+          text: m.text,
+          lastReferencedAt: m.lastReferencedAt,
+        })),
+        now: now.toISOString(),
+      })
+    : [];
 
   // --- Migraine (symptom log is cycles.symptoms, the app's only free-text symptom log) ---
   const recentSymptomLogs = cycles.map((c) => ({ date: c.startDate, symptoms: c.symptoms }));
-  const migraineInsights = runMigraineEngine({ today, recentSymptomLogs, todaysMealGapHours });
+  const migraineInsights =
+    sourceCanInformDecisions(cyclesSource) &&
+    sourceCanInformDecisions(mealsSource)
+      ? runMigraineEngine({
+          today,
+          recentSymptomLogs,
+          todaysMealGapHours,
+        })
+      : [];
 
   // --- Menstrual ---
   const latestCycleStartDate = cycles[0]?.startDate ?? null;
-  const menstrualInsights = runMenstrualEngine({ latestCycleStartDate, today });
+  const menstrualInsights = sourceCanInformDecisions(cyclesSource)
+    ? runMenstrualEngine({ latestCycleStartDate, today })
+    : [];
 
   // --- Thyroid ---
   const age = ageFromDateOfBirth(profile.dateOfBirth, today);
@@ -205,11 +373,15 @@ export async function buildCoachDecision(userId: string): Promise<CoachDecision>
         })
       : null;
   const recentReportedSymptoms = cycles.flatMap((c) => c.symptoms);
-  const thyroidInsights = runThyroidEngine({
-    calorieGoal: goals.calorieGoal,
-    estimatedMaintenanceCalories,
-    recentReportedSymptoms,
-  });
+  const thyroidInsights =
+    sourceCanInformDecisions(weightsSource) &&
+    sourceCanInformDecisions(cyclesSource)
+      ? runThyroidEngine({
+          calorieGoal: goals.calorieGoal,
+          estimatedMaintenanceCalories,
+          recentReportedSymptoms,
+        })
+      : [];
 
   // --- Workday ---
   const workdayInsights = runWorkdayEngine({
@@ -247,7 +419,13 @@ export async function buildCoachDecision(userId: string): Promise<CoachDecision>
     waterGoalMl: goals.waterGoalMl,
     calorieGoal: goals.calorieGoal,
   });
-  const adaptiveLearningInsights = runAdaptiveLearningEngine({ history: historicalDayRecords });
+  const adaptiveLearningInsights =
+    sourceCanInformDecisions(mealsSource) &&
+    sourceCanInformDecisions(waterSource) &&
+    sourceCanInformDecisions(workoutsSource) &&
+    sourceCanInformDecisions(sleepSource)
+      ? runAdaptiveLearningEngine({ history: historicalDayRecords })
+      : [];
 
   const allInsights: EngineInsight[] = [
     ...behaviorInsights,
@@ -262,7 +440,34 @@ export async function buildCoachDecision(userId: string): Promise<CoachDecision>
     ...adaptiveLearningInsights,
   ];
 
-  return runDecisionEngine(allInsights, { now: now.toISOString() });
+  return {
+    decision: runDecisionEngine(allInsights, { now: now.toISOString() }),
+    sources: {
+      profile: profileSource,
+      settings: settingsSource,
+      currentDateTime: {
+        status: "available",
+        data: {
+          now: now.toISOString(),
+          today,
+          currentHour,
+          currentMinute,
+        },
+        updatedAt: now.toISOString(),
+      },
+      weights: weightsSource,
+      meals: mealsSource,
+      water: waterSource,
+      workouts: workoutsSource,
+      sleep: sleepSource,
+      cycles: cyclesSource,
+      motivations: motivationsSource,
+    },
+  };
+}
+
+export async function buildCoachDecision(userId: string): Promise<CoachDecision> {
+  return (await buildCoachDecisionWithAvailability(userId)).decision;
 }
 
 /** Also exposed for any future caller that wants the raw context (profile + goals) without running the engines. */
@@ -283,6 +488,21 @@ export async function buildAICoachContext(userId: string): Promise<AICoachContex
     },
     generatedAt: new Date().toISOString(),
   };
+}
+
+function latestRecordUpdate(items: readonly unknown[]): string | undefined {
+  return items
+    .map((item) => {
+      const record = item as { updatedAt?: unknown; createdAt?: unknown };
+      return typeof record.updatedAt === "string" && record.updatedAt
+        ? record.updatedAt
+        : typeof record.createdAt === "string" && record.createdAt
+          ? record.createdAt
+          : null;
+    })
+    .filter((value): value is string => value !== null)
+    .sort()
+    .at(-1);
 }
 
 function daysSinceMostRecent(dates: string[], today: string): number {

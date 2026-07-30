@@ -13,6 +13,10 @@ import type {
   ScheduleSlot,
   WeeklyMealPrepResult,
 } from "@/lib/planner";
+import type {
+  DataSourceAvailability,
+  DataSourceStatus,
+} from "./availability";
 
 export type CoachPlanAvailabilityStatus =
   | "available"
@@ -68,10 +72,10 @@ export interface TodayCoachTimelineImpact {
 }
 
 export interface TodayCoachTimelineDataAvailability {
-  mealLogs: "available" | "unavailable";
-  waterLogs: "available" | "unavailable";
-  workoutLogs: "available" | "unavailable";
-  manualCompletions: "available" | "unavailable";
+  mealLogs: DataSourceStatus;
+  waterLogs: DataSourceStatus;
+  workoutLogs: DataSourceStatus;
+  manualCompletions: DataSourceStatus;
 }
 
 export interface TodayCoachMealGuidance extends MealRecommendation {
@@ -100,6 +104,20 @@ export interface TodayCoachDataAvailability {
   adaptiveAdjustments: CoachPlanAvailabilityStatus;
   weeklyContext: CoachPlanAvailabilityStatus;
   timelineStatus: TodayCoachTimelineDataAvailability;
+  sources: {
+    profile: DataSourceAvailability;
+    settings: DataSourceAvailability;
+    currentDateTime: DataSourceAvailability;
+    weights: DataSourceAvailability;
+    meals: DataSourceAvailability;
+    water: DataSourceAvailability;
+    workouts: DataSourceAvailability;
+    sleep: DataSourceAvailability;
+    cycles: DataSourceAvailability;
+    motivations: DataSourceAvailability;
+    timelineCompletions: DataSourceAvailability;
+  };
+  cache: DataSourceAvailability;
 }
 
 export type TodayCoachPlanWarningCode =
@@ -113,7 +131,9 @@ export type TodayCoachPlanWarningCode =
   | "timeline-meal-logs-unavailable"
   | "timeline-water-logs-unavailable"
   | "timeline-workout-logs-unavailable"
-  | "timeline-manual-completions-unavailable";
+  | "timeline-manual-completions-unavailable"
+  | "optional-source-unavailable"
+  | "cached-plan-stale";
 
 export interface TodayCoachPlanWarning {
   code: TodayCoachPlanWarningCode;
