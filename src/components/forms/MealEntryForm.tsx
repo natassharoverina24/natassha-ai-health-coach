@@ -112,7 +112,11 @@ export function MealEntryForm({
       initialValues?.fatG?.toString() ??
       "",
   );
-  const [fiber, setFiber] = useState(initialValues?.fiberG?.toString() ?? "");
+  const [fiber, setFiber] = useState(
+    initialLocalEstimate?.macros.fiberG?.toString() ??
+      initialValues?.fiberG?.toString() ??
+      "",
+  );
   const [servingGrams, setServingGrams] = useState(
     initialLocalEstimate?.servingGrams?.toString() ??
       initialValues?.nutritionConfirmation?.servingGrams?.toString() ??
@@ -136,6 +140,16 @@ export function MealEntryForm({
         initialValues?.nutritionConfirmation?.source ??
         "manual-entry",
     );
+  const [estimateProvider, setEstimateProvider] = useState(
+    initialLocalEstimate?.provider ??
+      initialValues?.nutritionConfirmation?.provider ??
+      null,
+  );
+  const [estimateModel, setEstimateModel] = useState(
+    initialLocalEstimate?.model ??
+      initialValues?.nutritionConfirmation?.model ??
+      null,
+  );
   const [estimateAssumptions, setEstimateAssumptions] = useState<string[]>(
     initialLocalEstimate?.assumptions ??
       initialValues?.nutritionConfirmation?.assumptions ??
@@ -167,6 +181,8 @@ export function MealEntryForm({
     setFiber("");
     setServingGrams("");
     setEstimateAssumptions([]);
+    setEstimateProvider(null);
+    setEstimateModel(null);
     setEstimatedAt(null);
     setEstimateConfidence(null);
     setEstimateUncertain(false);
@@ -201,10 +217,18 @@ export function MealEntryForm({
     setProtein(String(estimate.macros.proteinG));
     setCarbs(String(estimate.macros.carbsG));
     setFat(String(estimate.macros.fatG));
+    setFiber(
+      estimate.macros.fiberG === null ||
+        estimate.macros.fiberG === undefined
+        ? ""
+        : String(estimate.macros.fiberG),
+    );
     setServingGrams(
       estimate.servingGrams === null ? "" : String(estimate.servingGrams),
     );
     setEstimateSource(estimate.source);
+    setEstimateProvider(estimate.provider);
+    setEstimateModel(estimate.model);
     setEstimateAssumptions([...estimate.assumptions]);
     setEstimatedAt(estimate.estimatedAt);
     setEstimateConfidence(estimate.confidence);
@@ -231,6 +255,8 @@ export function MealEntryForm({
       if (result.status === "unavailable") {
         setEstimateStatus("manual");
         setEstimateSource("manual-entry");
+        setEstimateProvider(null);
+        setEstimateModel(null);
         setError("Nutrition estimate unavailable");
         return;
       }
@@ -238,6 +264,8 @@ export function MealEntryForm({
     } catch {
       setEstimateStatus("manual");
       setEstimateSource("manual-entry");
+      setEstimateProvider(null);
+      setEstimateModel(null);
       setError("Nutrition estimate unavailable");
     } finally {
       setSubmitting(false);
@@ -308,6 +336,8 @@ export function MealEntryForm({
               assumptions: [...estimateAssumptions],
               estimatedAt,
               confirmedAt,
+              provider: estimateProvider,
+              model: estimateModel,
             }
           : initialValues?.nutritionConfirmation,
       });
@@ -430,6 +460,8 @@ export function MealEntryForm({
               onClick={() => {
                 setEstimateStatus("manual");
                 setEstimateSource("manual-entry");
+                setEstimateProvider(null);
+                setEstimateModel(null);
                 setError(null);
               }}
             >
@@ -454,9 +486,11 @@ export function MealEntryForm({
             <p className="mt-1 text-xs text-ink-muted">
               {estimateStatus === "manual"
                 ? "Manual nutrition entry"
-                : estimateUncertain
-                  ? `AI estimate: ${estimateConfidence ?? "low"} confidence · uncertain`
-                  : "Approved local nutrition"}
+                : estimateSource === "user-confirmed-cache"
+                  ? "Previously confirmed nutrition"
+                  : estimateUncertain
+                    ? `AI estimate: ${estimateConfidence ?? "low"} confidence · uncertain`
+                    : "Approved local nutrition"}
             </p>
             {estimateAssumptions.length > 0 && (
               <ul className="mt-1 list-disc pl-5 text-xs text-ink-muted">

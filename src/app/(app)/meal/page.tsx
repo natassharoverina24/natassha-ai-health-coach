@@ -45,7 +45,10 @@ import type {
   MealPhotoAnalysis,
 } from "@/lib/ai/mealPhotoAnalysis";
 import { buildConfirmedMealUpdate } from "@/lib/ai/mealPhotoAnalysis";
-import { requestManualNutritionEstimate } from "@/lib/ai/manualNutritionEstimate";
+import {
+  requestManualNutritionEstimate,
+  type ManualNutritionEstimateRequest,
+} from "@/lib/ai/manualNutritionEstimate";
 import { invalidateTodayCoachPlanCache } from "@/lib/coach-plan/cache";
 import type {
   MealEntry,
@@ -105,6 +108,15 @@ export default function MealPage() {
     proteinGoalG: settings?.proteinGoalG ?? DEFAULT_GOALS.proteinGoalG,
     waterGoalMl: settings?.waterGoalMl ?? DEFAULT_GOALS.waterGoalMl,
   };
+
+  const handleManualNutritionEstimate = (
+    request: ManualNutritionEstimateRequest,
+  ) =>
+    requestManualNutritionEstimate(request, {
+      getConfirmedMeals: uid
+        ? () => mealsRepository.listForUserRange(uid)
+        : undefined,
+    });
 
   // ---- Meal CRUD ----------------------------------------------------------
 
@@ -435,7 +447,7 @@ export default function MealPage() {
           <MealEntryForm
             defaultType={addModal.type}
             submitLabel="Save food"
-            onEstimate={requestManualNutritionEstimate}
+            onEstimate={handleManualNutritionEstimate}
             onSubmit={handleCreateMeal}
             onCancel={() => setAddModal(null)}
           />
@@ -459,7 +471,7 @@ export default function MealPage() {
               nutritionConfirmation: editingMeal.nutritionConfirmation,
             }}
             submitLabel="Save changes"
-            onEstimate={requestManualNutritionEstimate}
+            onEstimate={handleManualNutritionEstimate}
             onSubmit={handleUpdateMeal}
             onCancel={() => setEditingMeal(null)}
           />

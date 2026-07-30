@@ -105,6 +105,8 @@ describe("/meal manual nutrition confirmation", () => {
       status: "ready",
       estimate: {
         source: "gemini-estimate",
+        provider: "gemini",
+        model: "gemini-3.5-flash-lite",
         servingGrams: 350,
         macros: {
           calories: 320,
@@ -178,6 +180,8 @@ describe("/meal manual nutrition confirmation", () => {
           nutritionConfirmation: expect.objectContaining({
             source: "gemini-estimate",
             userConfirmed: true,
+            provider: "gemini",
+            model: "gemini-3.5-flash-lite",
           }),
         }),
         expect.stringMatching(/^manual-meal-/),

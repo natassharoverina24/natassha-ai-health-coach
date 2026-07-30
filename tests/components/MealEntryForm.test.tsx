@@ -106,6 +106,8 @@ describe("MealEntryForm", () => {
       status: "ready",
       estimate: {
         source: "gemini-estimate",
+        provider: "gemini",
+        model: "gemini-3.5-flash-lite",
         servingGrams: 350,
         macros: { calories: 320, proteinG: 22, carbsG: 35, fatG: 10 },
         assumptions: ["One medium bowl was assumed."],
@@ -205,6 +207,8 @@ describe("MealEntryForm", () => {
       status: "ready",
       estimate: {
         source: "gemini-estimate",
+        provider: "gemini",
+        model: "gemini-3.5-flash-lite",
         servingGrams: 350,
         macros: {
           calories: 320,
@@ -259,6 +263,8 @@ describe("MealEntryForm", () => {
           source: "gemini-estimate",
           userConfirmed: true,
           servingGrams: 350,
+          provider: "gemini",
+          model: "gemini-3.5-flash-lite",
         }),
       }),
     );

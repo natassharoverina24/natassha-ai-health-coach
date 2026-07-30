@@ -19,14 +19,43 @@ non-functional placeholder configuration.
 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Optional, inactive | Client-visible | Rollback-only Storage configuration; unused at runtime |
 | `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | Optional | Client-visible | Analytics, when enabled |
 | `NEXT_PUBLIC_FIREBASE_VAPID_KEY` | Optional | Client-visible | Push messaging, when enabled |
-| `GEMINI_API_KEY` | Feature-required | Server secret | Gemini Developer API Free Tier meal-photo analysis |
+| `GEMINI_API_KEY` | Feature-required | Server secret | Gemini Developer API Free Tier meal-photo and text nutrition estimation |
 | `GEMINI_MODEL` | Optional | Server configuration | Free Tier multimodal model override |
+| `GROQ_API_KEY` | Optional | Server secret | Groq free-plan fallback for text nutrition estimation |
+| `OPENROUTER_API_KEY` | Optional | Server secret | OpenRouter `openrouter/free` fallback for text nutrition estimation |
 | `ANTHROPIC_API_KEY` | Optional | Server secret | Unrelated on-demand Response Layer rewriting |
 | `ANTHROPIC_MODEL` | Optional | Server configuration | Unrelated response-model override |
 
-`GEMINI_API_KEY` and `ANTHROPIC_API_KEY` must never use a `NEXT_PUBLIC_`
-prefix. Firebase Web SDK values are intentionally client-visible; security
-rules enforce data access.
+`GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, and
+`ANTHROPIC_API_KEY` must never use a `NEXT_PUBLIC_` prefix. Firebase Web SDK
+values are intentionally client-visible; security rules enforce data access.
+
+## Free text nutrition estimation
+
+- Text nutrition uses this fixed fallback order: bundled approved food data,
+  the user's previously confirmed matching meals, Gemini Free Tier, Groq free
+  plan, OpenRouter `openrouter/free`, then editable manual entry.
+- Gemini defaults to `gemini-3.5-flash-lite`, Groq defaults to
+  `llama-3.1-8b-instant`, and OpenRouter is fixed to `openrouter/free`.
+  There is no paid-model fallback or automatic upgrade.
+- Configure only Gemini Free Tier, Groq Free Tier, and OpenRouter free-model
+  credentials without billing or automatic top-up. The application cannot
+  change an account's provider billing tier.
+- Each server provider has an eight-second timeout and a process-local limit
+  of ten requests per authenticated user per hour. These safeguards reset when
+  a server instance restarts.
+- Only food name, quantity, and portion are sent. User name, email, health
+  history, and other profile data are never included.
+- Free providers may process or retain submitted text under their own data-use
+  terms, so food fields must not contain personal or sensitive information.
+- Provider output is schema-validated and remains editable. Provider/model
+  provenance is stored only after the user confirms the meal values.
+- Free-tier quota and model availability can change. Check the current
+  [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing),
+  [Groq free-plan limits](https://console.groq.com/docs/rate-limits), and
+  [OpenRouter free router](https://openrouter.ai/openrouter/free) before
+  deployment. Bundled local data and manual nutrition entry remain available
+  without any AI provider.
 
 ## Free Tier photo analysis
 
@@ -92,7 +121,9 @@ No dependency versions were changed and no audit-fix command was run.
 
 - Browser code receives only `NEXT_PUBLIC_*` Firebase configuration.
 - `ANTHROPIC_API_KEY` is read only inside the unrelated coach response route.
-- `GEMINI_API_KEY` is read only inside the meal-photo analysis route.
+- `GEMINI_API_KEY` is read only inside server AI routes.
+- `GROQ_API_KEY` and `OPENROUTER_API_KEY` are read only inside the server text
+  nutrition route.
 - `/api/ai/coach` requires and verifies a Firebase ID token.
 - `/api/ai/meal-photo` verifies a Firebase ID token, accepts only JPEG, PNG, or
   WebP multipart images, rejects requests over 4 MiB, and keeps image bytes in
@@ -123,6 +154,14 @@ Git.
 - Confirm unauthenticated page access redirects to `/login`.
 - Confirm unauthenticated `/api/ai/coach` returns `401`.
 - Confirm unauthenticated `/api/ai/meal-photo` returns `401`.
+- Confirm unauthenticated `/api/ai/meal-nutrition` returns `401`.
+- Add a known bundled food and confirm no AI provider request occurs.
+- Add a previously confirmed food with the same quantity and confirm the
+  cached values appear without an AI request.
+- Simulate Gemini 429, invalid Gemini output, and Groq failure; confirm fallback
+  reaches Groq and then `openrouter/free` without exposing provider details.
+- Disable or exhaust every text provider; confirm editable manual nutrition
+  remains available and the unresolved item is excluded from totals.
 - Select JPEG, PNG, and WebP meal images; confirm each is locally previewed and
   returns visibly uncertain, editable estimates.
 - Confirm the food-only privacy warning appears before selection.

@@ -89,12 +89,18 @@ export interface MealNutritionMacro {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  fiberG?: number | null;
 }
 
 export type MealNutritionEstimateSource =
   | "local-approved"
+  | "user-confirmed-cache"
   | "gemini-estimate"
+  | "groq-estimate"
+  | "openrouter-estimate"
   | "manual-entry";
+
+export type MealNutritionProvider = "gemini" | "groq" | "openrouter";
 
 export interface MealNutritionConfirmation {
   status: "confirmed";
@@ -104,6 +110,8 @@ export interface MealNutritionConfirmation {
   assumptions: string[];
   estimatedAt: ISODateString | null;
   confirmedAt: ISODateString;
+  provider?: MealNutritionProvider | null;
+  model?: string | null;
 }
 
 export interface MealEntry extends BaseDocument {

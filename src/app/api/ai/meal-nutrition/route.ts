@@ -1,29 +1,34 @@
 import { NextResponse } from "next/server";
 
-import type {
-  ManualNutritionEstimate,
-  NutritionEstimateConfidence,
-} from "@/lib/ai/manualNutritionEstimate";
+import type { ManualNutritionEstimate } from "@/lib/ai/manualNutritionEstimate";
+import {
+  DEFAULT_GEMINI_NUTRITION_MODEL,
+  DEFAULT_GROQ_NUTRITION_MODEL,
+  GeminiNutritionProvider,
+  GroqNutritionProvider,
+  OPENROUTER_FREE_NUTRITION_MODEL,
+  OpenRouterNutritionProvider,
+  estimateNutritionWithFallback,
+} from "@/lib/ai/server/nutritionEstimation";
 import { authenticateFirebaseRequest } from "@/lib/firebase/serverAuth";
 
-const GEMINI_API_ROOT =
-  "https://generativelanguage.googleapis.com/v1beta/models";
 export const DEFAULT_GEMINI_MEAL_NUTRITION_MODEL =
-  "gemini-3.5-flash-lite";
+  DEFAULT_GEMINI_NUTRITION_MODEL;
+export const DEFAULT_GROQ_MEAL_NUTRITION_MODEL =
+  DEFAULT_GROQ_NUTRITION_MODEL;
+export const DEFAULT_OPENROUTER_MEAL_NUTRITION_MODEL =
+  OPENROUTER_FREE_NUTRITION_MODEL;
+
 const MAX_REQUEST_TEXT = 240;
-const MAX_ASSUMPTIONS = 10;
-const PROHIBITED_GUIDANCE =
-  /\b(thyroid|diagnos(?:e|is)|treat(?:ment)?|cure|medication|supplement|prescri(?:be|ption)|medical advice|you should|recommend(?:ation)?|avoid eating|diet plan)\b/i;
+const PROVIDER_REQUESTS_PER_HOUR = 10;
+const PROVIDER_WINDOW_MS = 60 * 60 * 1_000;
 
-const SYSTEM_PROMPT = `Estimate nutrition only for the food name and serving supplied by the user.
-Return JSON only with this exact shape:
-{"servingGrams":1,"calories":1,"proteinG":0,"carbsG":0,"fatG":0,"confidence":"low","assumptions":[]}
-Treat every value as an uncertain estimate. Calories must be greater than zero.
-Do not provide recommendations, coaching decisions, diagnoses, medical claims, diets, restrictions, supplements, or medication guidance.`;
-
-interface GeminiPart {
-  text?: unknown;
+interface ProviderRateWindow {
+  startedAt: number;
+  count: number;
 }
+
+const providerRateWindows = new Map<string, ProviderRateWindow>();
 
 function safeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -33,78 +38,24 @@ function safeText(value: unknown): string | null {
     : null;
 }
 
-function safeNumber(
-  value: unknown,
-  minimum: number,
-  maximum = 10_000,
-): number | null {
-  return typeof value === "number" &&
-    Number.isFinite(value) &&
-    value >= minimum &&
-    value <= maximum
-    ? value
-    : null;
+export function resetNutritionProviderRateLimitsForTests() {
+  providerRateWindows.clear();
 }
 
-function safeAssumption(value: unknown): string | null {
-  const result = safeText(value);
-  return result && !PROHIBITED_GUIDANCE.test(result) ? result : null;
-}
-
-export function sanitizeManualNutritionProviderOutput(
-  value: unknown,
-  estimatedAt: string,
-): ManualNutritionEstimate | null {
-  if (!value || typeof value !== "object") return null;
-  const candidate = value as Record<string, unknown>;
-  const servingGrams = safeNumber(candidate.servingGrams, 0.1);
-  const calories = safeNumber(candidate.calories, 0.1);
-  const proteinG = safeNumber(candidate.proteinG, 0);
-  const carbsG = safeNumber(candidate.carbsG, 0);
-  const fatG = safeNumber(candidate.fatG, 0);
-  const confidence = candidate.confidence;
-  if (
-    servingGrams === null ||
-    calories === null ||
-    proteinG === null ||
-    carbsG === null ||
-    fatG === null ||
-    !["low", "medium", "high"].includes(String(confidence)) ||
-    !Array.isArray(candidate.assumptions) ||
-    candidate.assumptions.length > MAX_ASSUMPTIONS
-  ) {
-    return null;
+function allowProviderRequest(
+  userId: string,
+  provider: "gemini" | "groq" | "openrouter",
+  now = Date.now(),
+): boolean {
+  const key = `${userId}:${provider}`;
+  const current = providerRateWindows.get(key);
+  if (!current || now - current.startedAt >= PROVIDER_WINDOW_MS) {
+    providerRateWindows.set(key, { startedAt: now, count: 1 });
+    return true;
   }
-  const assumptions = candidate.assumptions.map(safeAssumption);
-  if (assumptions.some((item) => item === null)) return null;
-  return {
-    source: "gemini-estimate",
-    servingGrams,
-    macros: { calories, proteinG, carbsG, fatG },
-    confidence: confidence as NutritionEstimateConfidence,
-    assumptions: assumptions as string[],
-    uncertain: true,
-    estimatedAt,
-  };
-}
-
-function extractProviderJson(value: unknown): unknown {
-  if (!value || typeof value !== "object") return null;
-  const candidates = (value as { candidates?: unknown }).candidates;
-  if (!Array.isArray(candidates) || candidates.length === 0) return null;
-  const content = (candidates[0] as { content?: unknown })?.content;
-  if (!content || typeof content !== "object") return null;
-  const parts = (content as { parts?: unknown }).parts;
-  if (!Array.isArray(parts)) return null;
-  const text = (parts as GeminiPart[])
-    .filter((part) => typeof part.text === "string")
-    .map((part) => part.text)
-    .join("");
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
+  if (current.count >= PROVIDER_REQUESTS_PER_HOUR) return false;
+  current.count += 1;
+  return true;
 }
 
 export async function POST(request: Request) {
@@ -131,113 +82,72 @@ export async function POST(request: Request) {
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
-  const name = safeText((body as Record<string, unknown>).name);
-  const quantityValue = (body as Record<string, unknown>).quantity;
+  const candidate = body as Record<string, unknown>;
+  const name = safeText(candidate.name);
   const quantity =
-    quantityValue === null || quantityValue === undefined
+    candidate.quantity === null || candidate.quantity === undefined
       ? null
-      : safeText(quantityValue);
-  if (!name || (quantityValue != null && !quantity)) {
+      : safeText(candidate.quantity);
+  const portion =
+    candidate.portion === null || candidate.portion === undefined
+      ? null
+      : safeText(candidate.portion);
+  if (
+    !name ||
+    (candidate.quantity != null && !quantity) ||
+    (candidate.portion != null && !portion)
+  ) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) {
+  const result = await estimateNutritionWithFallback(
+    { foodName: name, quantity, portion },
+    {
+      userId: authentication.uid,
+      providers: [
+        new GeminiNutritionProvider({
+          apiKey: process.env.GEMINI_API_KEY?.trim() ?? "",
+          model: DEFAULT_GEMINI_MEAL_NUTRITION_MODEL,
+        }),
+        new GroqNutritionProvider({
+          apiKey: process.env.GROQ_API_KEY?.trim() ?? "",
+          model: DEFAULT_GROQ_MEAL_NUTRITION_MODEL,
+        }),
+        new OpenRouterNutritionProvider({
+          apiKey: process.env.OPENROUTER_API_KEY?.trim() ?? "",
+          model: DEFAULT_OPENROUTER_MEAL_NUTRITION_MODEL,
+        }),
+      ],
+      allowProviderRequest,
+    },
+  );
+
+  if (result.status === "invalid-input") {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+  if (result.status !== "success") {
     return NextResponse.json(
       { error: "Nutrition estimate unavailable" },
       { status: 503 },
     );
   }
-  const model =
-    process.env.GEMINI_MODEL?.trim() ||
-    DEFAULT_GEMINI_MEAL_NUTRITION_MODEL;
-  try {
-    const providerResponse = await fetch(
-      `${GEMINI_API_ROOT}/${encodeURIComponent(model)}:generateContent`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
-        },
-        body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                text: JSON.stringify({
-                  foodName: name,
-                  serving: quantity ?? "not supplied",
-                }),
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0,
-          maxOutputTokens: 500,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "object",
-            properties: {
-              servingGrams: { type: "number" },
-              calories: { type: "number" },
-              proteinG: { type: "number" },
-              carbsG: { type: "number" },
-              fatG: { type: "number" },
-              confidence: {
-                type: "string",
-                enum: ["low", "medium", "high"],
-              },
-              assumptions: {
-                type: "array",
-                items: { type: "string" },
-              },
-            },
-            required: [
-              "servingGrams",
-              "calories",
-              "proteinG",
-              "carbsG",
-              "fatG",
-              "confidence",
-              "assumptions",
-            ],
-          },
-        },
-        }),
-        cache: "no-store",
-      },
-    );
-    if (providerResponse.status === 429) {
-      return NextResponse.json(
-        { error: "Nutrition estimate unavailable" },
-        { status: 429 },
-      );
-    }
-    if (!providerResponse.ok) {
-      return NextResponse.json(
-        { error: "Nutrition estimate unavailable" },
-        { status: 502 },
-      );
-    }
-    const estimate = sanitizeManualNutritionProviderOutput(
-      extractProviderJson(await providerResponse.json()),
-      new Date().toISOString(),
-    );
-    if (!estimate) {
-      return NextResponse.json(
-        { error: "Nutrition estimate unavailable" },
-        { status: 502 },
-      );
-    }
-    return NextResponse.json({ estimate });
-  } catch {
-    return NextResponse.json(
-      { error: "Nutrition estimate unavailable" },
-      { status: 502 },
-    );
-  }
+
+  const estimate: ManualNutritionEstimate = {
+    source: `${result.provider}-estimate`,
+    provider: result.provider,
+    model: result.model,
+    servingGrams: result.estimate.grams,
+    macros: {
+      calories: result.estimate.calories,
+      proteinG: result.estimate.proteinG,
+      carbsG: result.estimate.carbsG,
+      fatG: result.estimate.fatG,
+      fiberG: result.estimate.fiberG,
+    },
+    confidence: result.estimate.confidence,
+    assumptions: [...result.estimate.assumptions],
+    uncertain: true,
+    estimatedAt: new Date().toISOString(),
+  };
+  return NextResponse.json({ estimate });
 }
