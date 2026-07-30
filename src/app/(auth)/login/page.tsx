@@ -33,13 +33,14 @@ function GoogleIcon() {
 }
 
 export default function LoginPage() {
-  const { user, loading, signInWithGoogle, error } = useAuth();
+  const { user, authInitializing, loading, signInWithGoogle, error } =
+    useAuth();
   const router = useRouter();
   const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) router.replace("/dashboard");
-  }, [loading, user, router]);
+    if (!authInitializing && !loading && user) router.replace("/dashboard");
+  }, [authInitializing, loading, user, router]);
 
   const handleSignIn = async () => {
     setSigningIn(true);
@@ -66,7 +67,7 @@ export default function LoginPage() {
           size="lg"
           variant="secondary"
           onClick={() => void handleSignIn()}
-          isLoading={signingIn || loading}
+          isLoading={signingIn || authInitializing || loading}
           disabled={!firebaseConfigIsPresent}
           leadingIcon={<GoogleIcon />}
         >

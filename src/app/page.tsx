@@ -7,13 +7,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Spinner } from "@/components/ui/Spinner";
 
 export default function RootPage() {
-  const { user, loading } = useAuth();
+  const { user, authInitializing, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (loading) return;
+    if (authInitializing || loading) return;
     router.replace(user ? "/dashboard" : "/login");
-  }, [loading, user, router]);
+  }, [authInitializing, loading, user, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg">

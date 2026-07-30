@@ -8,10 +8,15 @@
  */
 import {
   type User,
+  browserLocalPersistence,
+  browserSessionPersistence,
   GoogleAuthProvider,
   getIdToken,
   getRedirectResult,
+  indexedDBLocalPersistence,
+  inMemoryPersistence,
   onAuthStateChanged as firebaseOnAuthStateChanged,
+  setPersistence,
   signInWithPopup,
   signInWithRedirect,
   signOut as firebaseSignOut,
@@ -26,6 +31,8 @@ export type GoogleSignInFlow = "popup" | "redirect";
 
 export const GOOGLE_SIGN_IN_FRIENDLY_ERROR =
   "Google sign-in could not be completed. Please try again.";
+type AuthPersistenceMode = "local" | "session" | "indexeddb" | "memory";
+let redirectResultPromise: Promise<User | null> | null = null;
 
 /** Pure browser check so the mobile redirect choice remains testable. */
 export function shouldUseGoogleRedirect(
@@ -66,21 +73,56 @@ function safeAuthErrorCode(error: unknown): string {
   return "auth/unknown";
 }
 
+function logAuthEvent(
+  event:
+    | "redirect result checked"
+    | "auth state resolved"
+    | "sign-in failed",
+  details: Record<string, unknown>,
+): void {
+  const method = event === "sign-in failed" ? "error" : "info";
+  console[method](`[Auth] ${event}`, details);
+}
+
 function logGoogleSignInFailure(
   error: unknown,
   flow: GoogleSignInFlow,
 ): void {
-  if (process.env.NODE_ENV === "production") return;
-  console.error("[Auth] Google sign-in failed", {
+  logAuthEvent("sign-in failed", {
     flow,
     code: safeAuthErrorCode(error),
     message: GOOGLE_SIGN_IN_FRIENDLY_ERROR,
   });
 }
 
+async function configureAuthPersistence(): Promise<AuthPersistenceMode> {
+  const candidates = [
+    ["local", browserLocalPersistence],
+    ["session", browserSessionPersistence],
+    ["indexeddb", indexedDBLocalPersistence],
+    ["memory", inMemoryPersistence],
+  ] as const;
+
+  for (const [mode, persistence] of candidates) {
+    try {
+      await setPersistence(auth, persistence);
+      return mode;
+    } catch {
+      // Safari privacy settings can reject an individual storage mechanism.
+      // Continue through Firebase's built-in persistence implementations.
+    }
+  }
+  throw new Error(GOOGLE_SIGN_IN_FRIENDLY_ERROR);
+}
+
 export async function signInWithGoogle(): Promise<User | null> {
   const flow = getGoogleSignInFlow();
   try {
+    const persistence = await configureAuthPersistence();
+    if (flow === "redirect" && persistence === "memory") {
+      // In-memory auth cannot survive a full-page redirect.
+      throw new Error("auth/persistence-unavailable");
+    }
     if (flow === "redirect") {
       await signInWithRedirect(auth, googleProvider);
       return null;
@@ -95,13 +137,23 @@ export async function signInWithGoogle(): Promise<User | null> {
 
 /** Completes a mobile redirect when AuthProvider mounts after returning. */
 export async function completeGoogleRedirectSignIn(): Promise<User | null> {
-  try {
-    const credential = await getRedirectResult(auth);
-    return credential?.user ?? null;
-  } catch (error) {
-    logGoogleSignInFailure(error, "redirect");
-    throw new Error(GOOGLE_SIGN_IN_FRIENDLY_ERROR);
+  if (!redirectResultPromise) {
+    redirectResultPromise = getRedirectResult(auth)
+      .then((credential) => {
+        const user = credential?.user ?? null;
+        logAuthEvent("redirect result checked", {
+          flow: "redirect",
+          code: "auth/ok",
+          message: user ? "user-restored" : "no-redirect-result",
+        });
+        return user;
+      })
+      .catch((error: unknown) => {
+        logGoogleSignInFailure(error, "redirect");
+        throw new Error(GOOGLE_SIGN_IN_FRIENDLY_ERROR);
+      });
   }
+  return redirectResultPromise;
 }
 
 export async function signOut(): Promise<void> {
@@ -111,7 +163,14 @@ export async function signOut(): Promise<void> {
 export function onAuthStateChanged(
   callback: (user: User | null) => void,
 ): () => void {
-  return firebaseOnAuthStateChanged(auth, callback);
+  return firebaseOnAuthStateChanged(auth, (user) => {
+    logAuthEvent("auth state resolved", {
+      flow: "observer",
+      code: "auth/ok",
+      message: user ? "authenticated" : "signed-out",
+    });
+    callback(user);
+  });
 }
 
 export function getCurrentUser(): User | null {

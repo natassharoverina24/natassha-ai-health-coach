@@ -32,6 +32,7 @@ import type { UserProfile } from "@/types/firestore";
 interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
+  authInitializing: boolean;
   loading: boolean;
   error: string | null;
   signInWithGoogle: () => Promise<void>;
@@ -47,16 +48,21 @@ const SIGN_OUT_FRIENDLY_ERROR =
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [authInitializing, setAuthInitializing] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    let unsubscribe: () => void = () => undefined;
+    let redirectChecked = false;
+    let redirectUser: User | null = null;
+    let authStateUser: User | null | undefined;
+    let initialStateHandled = false;
 
     const handleAuthState = async (firebaseUser: User | null) => {
       if (!active) return;
       setUser(firebaseUser);
+      setAuthInitializing(false);
 
       if (!firebaseUser) {
         setProfile(null);
@@ -83,12 +89,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    const resolveInitialState = () => {
+      if (
+        !active ||
+        initialStateHandled ||
+        !redirectChecked ||
+        authStateUser === undefined
+      ) {
+        return;
+      }
+      initialStateHandled = true;
+      void handleAuthState(redirectUser ?? authStateUser);
+    };
+
+    const unsubscribe = onAuthStateChanged((firebaseUser) => {
+      if (!active) return;
+      if (initialStateHandled) {
+        void handleAuthState(firebaseUser);
+        return;
+      }
+      authStateUser = firebaseUser;
+      resolveInitialState();
+    });
+
     void completeGoogleRedirectSignIn()
+      .then((firebaseUser) => {
+        redirectUser = firebaseUser;
+      })
       .catch(() => {
         if (active) setError(GOOGLE_SIGN_IN_FRIENDLY_ERROR);
       })
       .finally(() => {
-        if (active) unsubscribe = onAuthStateChanged(handleAuthState);
+        redirectChecked = true;
+        resolveInitialState();
       });
 
     return () => {
@@ -130,8 +163,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, profile, loading, error, signInWithGoogle, signOut }),
-    [user, profile, loading, error, signInWithGoogle, signOut],
+    () => ({
+      user,
+      profile,
+      authInitializing,
+      loading,
+      error,
+      signInWithGoogle,
+      signOut,
+    }),
+    [
+      user,
+      profile,
+      authInitializing,
+      loading,
+      error,
+      signInWithGoogle,
+      signOut,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

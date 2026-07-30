@@ -25,6 +25,7 @@ describe("LoginPage", () => {
   it("routes a successfully restored redirect session to the dashboard", async () => {
     (useAuth as jest.Mock).mockReturnValue({
       user: { uid: "mobile-user" },
+      authInitializing: false,
       loading: false,
       signInWithGoogle: jest.fn(),
       error: null,
@@ -40,6 +41,7 @@ describe("LoginPage", () => {
   it("shows only the friendly auth error", () => {
     (useAuth as jest.Mock).mockReturnValue({
       user: null,
+      authInitializing: false,
       loading: false,
       signInWithGoogle: jest.fn(),
       error: "Google sign-in could not be completed. Please try again.",

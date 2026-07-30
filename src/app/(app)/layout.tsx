@@ -13,14 +13,14 @@ import { Spinner } from "@/components/ui/Spinner";
  * middleware (which has no access to the Firebase SDK's session).
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, authInitializing, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
-  }, [loading, user, router]);
+    if (!authInitializing && !loading && !user) router.replace("/login");
+  }, [authInitializing, loading, user, router]);
 
-  if (loading || !user) {
+  if (authInitializing || loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg">
         <Spinner size={28} />
