@@ -103,6 +103,49 @@ describe("activeDisruptionsRepository", () => {
     );
   });
 
+  it("logs only safe diagnostics when save fails", async () => {
+    const privateError = Object.assign(
+      new Error("private token https://firebase.example/secret"),
+      { code: "firestore/permission-denied" },
+    );
+    repositoryMock.create.mockRejectedValue(privateError);
+    const log = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    await expect(
+      activeDisruptionsRepository.setActive(validInputs[0]),
+    ).rejects.toBe(privateError);
+
+    expect(log).toHaveBeenCalledWith(
+      "[EmergencyMode] save failed",
+      {
+        code: "firestore/permission-denied",
+        message: "Firestore permission denied the emergency adjustment.",
+        collection: "active_disruptions",
+        path: "active_disruptions/user-1__2026-07-29",
+        docId: "user-1__2026-07-29",
+        payloadKeys: [
+          "affectedMealSlot",
+          "affectedSlot",
+          "clearedAt",
+          "date",
+          "expectedEndAt",
+          "note",
+          "skippedAt",
+          "skippedMealSlot",
+          "startedAt",
+          "status",
+          "type",
+          "userId",
+        ],
+      },
+    );
+    expect(JSON.stringify(log.mock.calls)).not.toMatch(
+      /private token|firebase\.example|secret/i,
+    );
+  });
+
   it("clears the same-day record and does not carry it to another date", async () => {
     const active = {
       id: "user-1__2026-07-29",

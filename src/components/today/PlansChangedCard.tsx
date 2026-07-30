@@ -104,6 +104,8 @@ export function PlansChangedCard({
           <label className="flex flex-col gap-1.5 text-sm font-medium text-ink">
             What changed?
             <select
+              id="emergency-disruption-type"
+              name="emergencyDisruptionType"
               aria-label="What changed?"
               className={SELECT_CLASS}
               value={type}
@@ -122,6 +124,8 @@ export function PlansChangedCard({
 
           {type === "working-late" && (
             <Input
+              id="emergency-expected-end-at"
+              name="emergencyExpectedEndAt"
               label="Expected finish time"
               aria-label="Expected finish time"
               type="time"
@@ -132,6 +136,8 @@ export function PlansChangedCard({
           )}
           {type === "travelling" && (
             <SlotSelect
+              id="emergency-affected-slot"
+              name="emergencyAffectedSlot"
               label="Affected slot"
               value={affectedSlot}
               options={["breakfast", "lunch", "snack", "dinner", "workout"]}
@@ -142,6 +148,8 @@ export function PlansChangedCard({
           )}
           {type === "event-or-reception" && (
             <SlotSelect
+              id="emergency-affected-meal-slot"
+              name="emergencyAffectedMealSlot"
               label="Affected meal"
               value={affectedMealSlot}
               options={["lunch", "dinner", "snack"]}
@@ -153,12 +161,16 @@ export function PlansChangedCard({
           {type === "skipped-meal" && (
             <>
               <SlotSelect
+                id="emergency-skipped-meal-slot"
+                name="emergencySkippedMealSlot"
                 label="Skipped meal"
                 value={skippedMealSlot}
                 options={["breakfast", "lunch", "snack", "dinner"]}
                 onChange={(value) => setSkippedMealSlot(value as MealType)}
               />
               <Input
+                id="emergency-skipped-at"
+                name="emergencySkippedAt"
                 label="Time skipped"
                 aria-label="Time skipped"
                 type="time"
@@ -190,20 +202,29 @@ export function PlansChangedCard({
 }
 
 function SlotSelect({
+  id,
+  name,
   label,
   value,
   options,
   onChange,
 }: {
+  id: string;
+  name: string;
   label: string;
   value: string;
   options: readonly string[];
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex flex-col gap-1.5 text-sm font-medium text-ink">
+    <label
+      htmlFor={id}
+      className="flex flex-col gap-1.5 text-sm font-medium text-ink"
+    >
       {label}
       <select
+        id={id}
+        name={name}
         aria-label={label}
         className={SELECT_CLASS}
         value={value}

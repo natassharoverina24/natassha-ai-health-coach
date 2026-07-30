@@ -90,6 +90,45 @@ function logDevelopmentFailure(
   });
 }
 
+function safeErrorCode(error: unknown): string {
+  const rawCode =
+    error && typeof error === "object" && "code" in error
+      ? String(error.code)
+      : "unknown";
+  return /^[a-z0-9-]+(?:\/[a-z0-9-]+)?$/i.test(rawCode)
+    ? rawCode
+    : "unknown";
+}
+
+function safeErrorMessage(code: string): string {
+  if (code.endsWith("permission-denied")) {
+    return "Firestore permission denied the emergency adjustment.";
+  }
+  if (code.endsWith("unauthenticated")) {
+    return "Authentication was not available for the emergency adjustment.";
+  }
+  if (code.endsWith("unavailable")) {
+    return "Firestore was temporarily unavailable.";
+  }
+  return "Emergency adjustment save failed.";
+}
+
+function logSaveFailure(
+  error: unknown,
+  documentId: string,
+  payload: Record<string, unknown>,
+) {
+  const code = safeErrorCode(error);
+  console.error("[EmergencyMode] save failed", {
+    code,
+    message: safeErrorMessage(code),
+    collection: COLLECTIONS.activeDisruptions,
+    path: `${COLLECTIONS.activeDisruptions}/${documentId}`,
+    docId: documentId,
+    payloadKeys: Object.keys(payload).sort(),
+  });
+}
+
 export function activeDisruptionDocumentId(userId: string, date: string) {
   return [userId, date].map(encodeURIComponent).join("__");
 }
@@ -189,10 +228,11 @@ export const activeDisruptionsRepository = {
       throw new Error("invalid-active-disruption");
     }
     const id = activeDisruptionDocumentId(input.userId, input.date);
+    const payload = documentFromInput(input);
     try {
-      return await base.create(documentFromInput(input), id);
+      return await base.create(payload, id);
     } catch (error) {
-      logDevelopmentFailure("save", error);
+      logSaveFailure(error, id, payload);
       throw error;
     }
   },

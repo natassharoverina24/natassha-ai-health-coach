@@ -525,6 +525,62 @@ describe("Today dashboard", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
+  it("gives every Emergency Mode field a unique id and name", async () => {
+    const user = userEvent.setup();
+    render(<TodayDashboard />);
+    const disruptionType = screen.getByLabelText("What changed?");
+    expect(disruptionType).toHaveAttribute("id", "emergency-disruption-type");
+    expect(disruptionType).toHaveAttribute(
+      "name",
+      "emergencyDisruptionType",
+    );
+
+    await user.selectOptions(disruptionType, "working-late");
+    expect(screen.getByLabelText("Expected finish time")).toHaveAttribute(
+      "id",
+      "emergency-expected-end-at",
+    );
+    expect(screen.getByLabelText("Expected finish time"))
+      .toHaveAttribute("name", "emergencyExpectedEndAt");
+
+    await user.selectOptions(disruptionType, "travelling");
+    expect(screen.getByLabelText("Affected slot")).toHaveAttribute(
+      "id",
+      "emergency-affected-slot",
+    );
+    expect(screen.getByLabelText("Affected slot"))
+      .toHaveAttribute("name", "emergencyAffectedSlot");
+
+    await user.selectOptions(disruptionType, "event-or-reception");
+    expect(screen.getByLabelText("Affected meal")).toHaveAttribute(
+      "id",
+      "emergency-affected-meal-slot",
+    );
+    expect(screen.getByLabelText("Affected meal"))
+      .toHaveAttribute("name", "emergencyAffectedMealSlot");
+
+    await user.selectOptions(disruptionType, "skipped-meal");
+    expect(screen.getByLabelText("Skipped meal")).toHaveAttribute(
+      "id",
+      "emergency-skipped-meal-slot",
+    );
+    expect(screen.getByLabelText("Skipped meal"))
+      .toHaveAttribute("name", "emergencySkippedMealSlot");
+    expect(screen.getByLabelText("Time skipped")).toHaveAttribute(
+      "id",
+      "emergency-skipped-at",
+    );
+    expect(screen.getByLabelText("Time skipped"))
+      .toHaveAttribute("name", "emergencySkippedAt");
+
+    const fields = [
+      disruptionType,
+      screen.getByLabelText("Skipped meal"),
+      screen.getByLabelText("Time skipped"),
+    ];
+    expect(new Set(fields.map((field) => field.id)).size).toBe(fields.length);
+  });
+
   it("renders a non-blaming adjustment and clears it for the same date", async () => {
     const plan = makePlan();
     plan.emergencyAdjustment = {
