@@ -110,6 +110,17 @@ describe("buildMealGuidance", () => {
         }),
       );
       expect(guidance.alternatives).toHaveLength(2);
+      expect(guidance.practicalSubstitutions.length).toBeGreaterThan(0);
+      expect(guidance.alternatives[0]).toEqual(
+        expect.objectContaining({
+          availability: "common",
+          provenance: "local-catalog",
+          practicalSubstitutions: expect.any(Array),
+          sourceIds: expect.arrayContaining([
+            `planner.meal.alternative.${slot}`,
+          ]),
+        }),
+      );
       expect(
         guidance.alternatives.every(
           (alternative) =>
@@ -117,6 +128,23 @@ describe("buildMealGuidance", () => {
             alternative.templateId !== template.id,
         ),
       ).toBe(true);
+    }
+  });
+
+  it("keeps ranked alternatives but presents commonly available choices first", () => {
+    const { result } = build();
+
+    for (const slot of ["breakfast", "lunch", "snack", "dinner"] as const) {
+      const availability = result[slot].alternatives.map(
+        (alternative) => alternative.availability,
+      );
+      const firstOptional = availability.indexOf("optional");
+      if (firstOptional >= 0) {
+        expect(availability.slice(firstOptional)).toEqual(
+          expect.arrayContaining(["optional"]),
+        );
+        expect(availability.slice(0, firstOptional)).not.toContain("optional");
+      }
     }
   });
 

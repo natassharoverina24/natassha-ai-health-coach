@@ -18,6 +18,11 @@ import type {
   EmergencyDisruptionType,
 } from "@/types/firestore";
 import type { AdaptiveInsight } from "@/lib/adaptive-learning";
+import type {
+  PracticalFoodAvailability,
+  PracticalSubstitutionGroup,
+  PracticalSubstituteProvenance,
+} from "@/lib/meal-substitutions";
 
 export type CoachPlanAvailabilityStatus =
   | "available"
@@ -91,6 +96,9 @@ export interface MealAlternative {
   name: string;
   servingText: string;
   nutrition: MealGuidanceNutrition;
+  availability: PracticalFoodAvailability;
+  provenance: PracticalSubstituteProvenance;
+  practicalSubstitutions: PracticalSubstitutionGroup[];
   sourceIds: string[];
 }
 
@@ -116,6 +124,7 @@ export interface TodayCoachMealGuidance {
   nutrition: MealGuidanceNutrition;
   why: string[];
   alternatives: MealAlternative[];
+  practicalSubstitutions: PracticalSubstitutionGroup[];
   confirmedConsumption: ConfirmedMealConsumption | null;
   remainingAfterMeal: {
     caloriesKcal: number;

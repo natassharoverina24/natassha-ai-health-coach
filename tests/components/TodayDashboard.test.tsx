@@ -330,7 +330,77 @@ describe("Today dashboard", () => {
     expect(screen.getAllByText("estimated")).toHaveLength(3);
     expect(screen.getByText("Remember the retained motivation.")).toBeInTheDocument();
     expect(screen.getAllByText(/Remaining after/)).toHaveLength(4);
-    expect(screen.getAllByText("Approved alternatives")).toHaveLength(4);
+    expect(screen.getAllByRole("button", { name: "Ganti menu" })).toHaveLength(4);
+  });
+
+  it("opens practical alternatives and previews a selected approved replacement", async () => {
+    const user = userEvent.setup();
+    const plan = makePlan();
+    const alternative = plan.meals.breakfast.alternatives[0];
+    (useTodayCoachPlan as jest.Mock).mockReturnValue({
+      plan,
+      loading: false,
+      refreshing: false,
+      error: null,
+      refresh,
+    });
+
+    render(<TodayDashboard />);
+    const breakfastCard = screen.getByText(/^breakfast ·/i).closest("li");
+    expect(breakfastCard).not.toBeNull();
+    await user.click(within(breakfastCard!).getByRole("button", { name: "Ganti menu" }));
+
+    expect(
+      within(breakfastCard!).getByText(/pilih yang paling gampang kamu dapetin/i),
+    ).toBeInTheDocument();
+    await user.click(
+      within(breakfastCard!).getByRole("button", {
+        name: `Pilih ${alternative.name} untuk breakfast`,
+      }),
+    );
+    expect(within(breakfastCard!).getByText("Menu pengganti dipilih")).toBeInTheDocument();
+    expect(within(breakfastCard!).getAllByText(alternative.name)).toHaveLength(2);
+    expect(within(breakfastCard!).getByRole("link", { name: /konfirmasi.*meal log/i })).toHaveAttribute(
+      "href",
+      "/meal",
+    );
+  });
+
+  it("marks unapproved practical nutrition for confirmation", async () => {
+    const user = userEvent.setup();
+    const plan = makePlan();
+    (useTodayCoachPlan as jest.Mock).mockReturnValue({
+      plan,
+      loading: false,
+      refreshing: false,
+      error: null,
+      refresh,
+    });
+
+    render(<TodayDashboard />);
+    const breakfastCard = screen.getByText(/^breakfast ·/i).closest("li");
+    await user.click(within(breakfastCard!).getByRole("button", { name: "Ganti menu" }));
+    expect(within(breakfastCard!).getAllByText(/Perlu konfirmasi/).length).toBeGreaterThan(0);
+  });
+
+  it("shows a friendly manual fallback when approved meal alternatives are empty", async () => {
+    const user = userEvent.setup();
+    const plan = makePlan();
+    plan.meals.breakfast.alternatives = [];
+    (useTodayCoachPlan as jest.Mock).mockReturnValue({
+      plan,
+      loading: false,
+      refreshing: false,
+      error: null,
+      refresh,
+    });
+
+    render(<TodayDashboard />);
+    const breakfastCard = screen.getByText(/^breakfast ·/i).closest("li");
+    await user.click(within(breakfastCard!).getByRole("button", { name: "Ganti menu" }));
+    expect(
+      within(breakfastCard!).getByText(/belum ada opsi ganti yang cocok/i),
+    ).toBeInTheDocument();
   });
 
   it("keeps the complete core plan visible for partial status", () => {
