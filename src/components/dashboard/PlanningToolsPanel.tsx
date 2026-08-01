@@ -4,6 +4,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { OfficeLunchOptimizerFlow } from "@/components/dashboard/OfficeLunchOptimizerFlow";
 import {
   calculateEnergy,
   type ActivityLevel,
@@ -14,7 +15,6 @@ import type { CoachDecision } from "@/lib/engines/decisionEngine";
 import {
   applyAdaptiveAdjustments,
   generateEmergencyPlan,
-  generateOfficeLunchPlan,
   generateWeeklyMealPrep,
   type AdaptiveAdjustmentResult,
   type DailyPlan,
@@ -22,7 +22,6 @@ import {
   type EmergencyPlanResult,
   type MealPlan,
   type MealSlot,
-  type OfficeLunchPlan,
   type PlannerUserContext,
   type WeeklyMealPrepResult,
 } from "@/lib/planner";
@@ -100,15 +99,6 @@ export function PlanningToolsPanel({
     useState<EnergyFields>(EMPTY_ENERGY_FIELDS);
   const [energyResult, setEnergyResult] =
     useState<EnergyCalculatorResult | null>(null);
-  const [remainingCalories, setRemainingCalories] = useState(
-    String(context.calorieGoal),
-  );
-  const [remainingProtein, setRemainingProtein] = useState(
-    String(context.proteinGoalG),
-  );
-  const [officeLunchResult, setOfficeLunchResult] =
-    useState<OfficeLunchPlan | null>(null);
-  const [officeLunchError, setOfficeLunchError] = useState<string | null>(null);
   const [disruptionType, setDisruptionType] =
     useState<EmergencyDisruption["type"]>("missed-breakfast");
   const [disruptionClock, setDisruptionClock] = useState("12:00");
@@ -152,31 +142,6 @@ export function PlanningToolsPanel({
         sex: energyFields.sex,
         activityLevel: energyFields.activityLevel,
       }),
-    );
-  };
-
-  const handleOfficeLunchSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const calories = Number(remainingCalories);
-    const proteinG = Number(remainingProtein);
-    if (
-      remainingCalories.trim() === "" ||
-      remainingProtein.trim() === "" ||
-      !Number.isFinite(calories) ||
-      !Number.isFinite(proteinG) ||
-      calories < 0 ||
-      proteinG < 0
-    ) {
-      setOfficeLunchResult(null);
-      setOfficeLunchError(
-        "Remaining calories and protein must be finite, non-negative values.",
-      );
-      return;
-    }
-
-    setOfficeLunchError(null);
-    setOfficeLunchResult(
-      generateOfficeLunchPlan(decision, context, { calories, proteinG }),
     );
   };
 
@@ -325,37 +290,7 @@ export function PlanningToolsPanel({
         </PlannerCard>
 
         <PlannerCard id="office-lunch-optimizer" title="Office lunch optimizer">
-          <form
-            aria-label="Office lunch optimizer"
-            className="grid gap-3 sm:grid-cols-3"
-            onSubmit={handleOfficeLunchSubmit}
-          >
-            <Input
-              id="remaining-calories"
-              label="Remaining calories"
-              type="number"
-              min="0"
-              value={remainingCalories}
-              onChange={(event) => setRemainingCalories(event.target.value)}
-              suffix="kcal"
-            />
-            <Input
-              id="remaining-protein"
-              label="Remaining protein"
-              type="number"
-              min="0"
-              value={remainingProtein}
-              onChange={(event) => setRemainingProtein(event.target.value)}
-              suffix="g"
-            />
-            <div className="flex items-end">
-              <Button type="submit" className="w-full">
-                Optimize lunch
-              </Button>
-            </div>
-          </form>
-          {officeLunchError && <StatusMessage tone="error">{officeLunchError}</StatusMessage>}
-          <OfficeLunchResultView result={officeLunchResult} />
+          <OfficeLunchOptimizerFlow decision={decision} context={context} />
         </PlannerCard>
 
         <PlannerCard id="weekly-meal-plan" title="Weekly meal plan">
@@ -539,30 +474,6 @@ function EnergyResultView({ result }: { result: EnergyCalculatorResult | null })
         {result.activityFactor}
       </p>
     </div>
-  );
-}
-
-function OfficeLunchResultView({ result }: { result: OfficeLunchPlan | null }) {
-  if (!result) return null;
-  if (!result.applicable) {
-    return <StatusMessage tone="neutral">{result.reason}</StatusMessage>;
-  }
-  return (
-    <ul className="grid gap-2 sm:grid-cols-2">
-      {result.recommendations.map((recommendation) => (
-        <li
-          key={recommendation.itemKey}
-          className="rounded-control bg-teal-soft px-3 py-2 text-sm"
-        >
-          <div className="flex justify-between gap-2">
-            <span className="font-medium text-ink">{recommendation.label}</span>
-            <span className="font-semibold text-teal">{recommendation.action}</span>
-          </div>
-          <p className="text-xs text-ink-muted">{recommendation.serving}</p>
-          <p className="mt-1 text-xs text-ink-muted">{recommendation.reason}</p>
-        </li>
-      ))}
-    </ul>
   );
 }
 

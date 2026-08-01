@@ -116,6 +116,36 @@ describe("generateOfficeLunchPlan — applicability and catalogue contract", () 
     expect(() => applicablePlan([], { calories: -1, proteinG: 50 })).toThrow(RangeError);
     expect(() => applicablePlan([], { calories: 500, proteinG: Number.NaN })).toThrow(RangeError);
   });
+
+  it("returns only today's selected catalogue items in catalogue order", () => {
+    const plan = generateOfficeLunchPlan(
+      makeDecision(),
+      makeContext(),
+      { calories: 500, proteinG: 50 },
+      { itemKeys: ["vegetables", "fish", "vegetables", "unknown"] },
+    );
+
+    expect(plan.applicable).toBe(true);
+    if (!plan.applicable) return;
+    expect(plan.recommendations.map((recommendation) => recommendation.itemKey)).toEqual([
+      "fish",
+      "vegetables",
+    ]);
+  });
+
+  it("does not mutate the selected-menu input", () => {
+    const selection = { itemKeys: ["rice", "egg"] };
+    const before = cloneData(selection);
+
+    generateOfficeLunchPlan(
+      makeDecision(),
+      makeContext(),
+      { calories: 500, proteinG: 50 },
+      selection,
+    );
+
+    expect(selection).toEqual(before);
+  });
 });
 
 describe("generateOfficeLunchPlan — ordinary target handling", () => {
@@ -196,6 +226,26 @@ describe("generateOfficeLunchPlan — retained PMS and protein-first insights", 
     expect(plan.recommendations.find((recommendation) => recommendation.action === "Add")?.itemKey).toBe(
       "chicken",
     );
+  });
+
+  it("uses the first available selected protein instead of an unavailable catalogue item", () => {
+    const plan = generateOfficeLunchPlan(
+      makeDecision([insight({ id: "nutrition.protein_first", engine: "nutrition" })]),
+      makeContext(),
+      { calories: 500, proteinG: 42 },
+      { itemKeys: ["vegetables", "fish", "tofu"] },
+    );
+
+    expect(plan.applicable).toBe(true);
+    if (!plan.applicable) return;
+    expect(plan.recommendations.map((recommendation) => recommendation.itemKey)).toEqual([
+      "fish",
+      "tofu",
+      "vegetables",
+    ]);
+    expect(plan.recommendations.filter((recommendation) => recommendation.action === "Add")).toEqual([
+      expect.objectContaining({ itemKey: "fish" }),
+    ]);
   });
 });
 

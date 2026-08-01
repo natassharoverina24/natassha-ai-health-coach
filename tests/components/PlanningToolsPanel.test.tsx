@@ -109,7 +109,7 @@ describe("PlanningToolsPanel", () => {
     expect(alert).not.toHaveTextContent(/thyroid|medical|supplement|medication/i);
   });
 
-  it("renders Office Lunch not-applicable and applicable results safely", async () => {
+  it("opens the Office Lunch flow and renders only the selected menu safely", async () => {
     const user = userEvent.setup();
     const { unmount } = render(
       <PlanningToolsPanel
@@ -120,9 +120,13 @@ describe("PlanningToolsPanel", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Optimize lunch" }));
+    await user.click(screen.getByRole("button", { name: "Buka Office Lunch Optimizer" }));
+    await user.click(screen.getByRole("button", { name: "Nasi" }));
+    await user.type(screen.getByLabelText("Sisa kalori"), "500");
+    await user.type(screen.getByLabelText("Sisa protein"), "50");
+    await user.click(screen.getByRole("button", { name: "Buat arahan makan siang" }));
     expect(
-      screen.getByText(/lunch is not office-provided/i),
+      screen.getByText(/Office lunch belum aktif di profil/i),
     ).toBeInTheDocument();
 
     unmount();
@@ -135,12 +139,23 @@ describe("PlanningToolsPanel", () => {
         mealPlan={generateMealPlan(baseDecision, officeContext)}
       />,
     );
-    await user.click(screen.getByRole("button", { name: "Optimize lunch" }));
+    await user.click(screen.getByRole("button", { name: "Buka Office Lunch Optimizer" }));
+    await user.click(screen.getByRole("button", { name: "Nasi" }));
+    await user.click(screen.getByRole("button", { name: "Ayam" }));
+    await user.type(screen.getByLabelText("Sisa kalori"), "500");
+    await user.type(screen.getByLabelText("Sisa protein"), "50");
+    await user.click(screen.getByRole("button", { name: "Buat arahan makan siang" }));
 
     const optimizer = screen
       .getByRole("heading", { name: "Office lunch optimizer" })
       .closest("section")!;
-    expect(within(optimizer).getAllByRole("listitem")).toHaveLength(11);
+    expect(
+      within(optimizer).getByRole("list", { name: "Arahan Office Lunch" }),
+    ).toBeInTheDocument();
+    expect(
+      within(within(optimizer).getByRole("list", { name: "Arahan Office Lunch" }))
+        .getAllByRole("listitem"),
+    ).toHaveLength(2);
   });
 
   it("renders emergency success, invalid-input, and not-applicable states", async () => {
