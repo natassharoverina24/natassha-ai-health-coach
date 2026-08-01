@@ -20,6 +20,14 @@ export interface RemainingNutritionBudget {
   proteinG: number;
 }
 
+export interface OfficeLunchMenuSelection {
+  /**
+   * Catalogue keys that are actually available on today's office tray.
+   * Omit the selection to preserve the original all-catalogue contract.
+   */
+  itemKeys: readonly string[];
+}
+
 export interface OfficeLunchRecommendation {
   itemKey: string;
   label: string;
@@ -141,6 +149,7 @@ export function generateOfficeLunchPlan(
   decision: CoachDecision,
   context: PlannerUserContext,
   remainingBudget: RemainingNutritionBudget,
+  menuSelection?: OfficeLunchMenuSelection,
 ): OfficeLunchPlan {
   if (!context.lunchProvidedByOffice) {
     return {
@@ -152,7 +161,10 @@ export function generateOfficeLunchPlan(
   assertBudget(remainingBudget);
 
   const constraints = detectActiveConstraints(decision.insights);
-  const recommendations = OFFICE_LUNCH_ITEMS.map((item) => baseRecommendation(item, remainingBudget));
+  const selectedKeys = menuSelection ? new Set(menuSelection.itemKeys) : null;
+  const recommendations = OFFICE_LUNCH_ITEMS.filter(
+    (item) => selectedKeys === null || selectedKeys.has(item.key),
+  ).map((item) => baseRecommendation(item, remainingBudget));
 
   // Thyroid is intentionally not used to prefer, avoid, Add, Reduce, or Skip
   // any food. Its retained deficit guardrail must not deepen restriction.
