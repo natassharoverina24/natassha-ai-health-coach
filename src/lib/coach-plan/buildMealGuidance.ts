@@ -10,6 +10,10 @@ import {
 import type { MealEntry, MealMacro } from "@/types/firestore";
 import { hasConfirmedMealNutrition } from "@/lib/utils/nutritionEstimates";
 import {
+  buildSubstitutionOptions,
+  getTemplatePracticalAvailability,
+} from "@/lib/meal-substitutions";
+import {
   TODAY_COACH_MEAL_SLOTS,
   type ConfirmedMealConsumption,
   type MealAlternative,
@@ -72,18 +76,29 @@ function alternativesFor(
   slot: MealSlot,
   selectedTemplateId: string,
 ): MealAlternative[] {
-  return rankMealCandidates(
+  const ranked = rankMealCandidates(
     decision,
     context,
     slot,
     new Set([selectedTemplateId]),
-  )
+  );
+  const common = ranked.filter(
+    ({ template }) => getTemplatePracticalAvailability(template.id) === "common",
+  );
+  const optional = ranked.filter(
+    ({ template }) => getTemplatePracticalAvailability(template.id) === "optional",
+  );
+
+  return [...common, ...optional]
     .slice(0, 2)
     .map(({ template }) => ({
       templateId: template.id,
       name: template.name,
       servingText: template.serving,
       nutrition: nutritionFromTemplate(template),
+      availability: getTemplatePracticalAvailability(template.id),
+      provenance: "local-catalog",
+      practicalSubstitutions: buildSubstitutionOptions(template.id),
       sourceIds: [
         `planner.meal.alternative.${slot}`,
         `meal-template:${template.id}`,
@@ -172,6 +187,9 @@ export function buildMealGuidance({
             decision,
             context,
             slot,
+            selected.template.id,
+          ),
+          practicalSubstitutions: buildSubstitutionOptions(
             selected.template.id,
           ),
           confirmedConsumption: confirmed,

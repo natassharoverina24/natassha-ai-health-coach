@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import {
   CalendarClock,
   CheckCircle2,
@@ -24,6 +25,10 @@ import type {
   TodayCoachPlan,
   TraceableValue,
 } from "@/lib/coach-plan";
+import type {
+  PracticalFoodRole,
+  PracticalSubstitutionGroup,
+} from "@/lib/meal-substitutions";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repository";
 import {
@@ -446,6 +451,16 @@ function TodayTimeline({
 }
 
 function TodayMealSummary({ plan }: { plan: TodayCoachPlan }) {
+  const [openSlots, setOpenSlots] = useState<Record<string, boolean>>({});
+  const [selectedBySlot, setSelectedBySlot] = useState<Record<string, string>>({});
+  const roleLabels: Record<PracticalFoodRole, string> = {
+    protein: "Protein",
+    carb: "Karbohidrat",
+    "vegetable-fiber": "Sayur / fiber",
+    "fruit-snack": "Buah / snack",
+    drink: "Minuman",
+  };
+
   return (
     <GlassCard>
       <section aria-labelledby="today-meals-heading">
@@ -454,7 +469,19 @@ function TodayMealSummary({ plan }: { plan: TodayCoachPlan }) {
           Nutrition guidance
         </h2>
         <ul className="mt-3 grid gap-3">
-          {Object.values(plan.meals).map((meal) => (
+          {Object.values(plan.meals).map((meal) => {
+            const selectedAlternative = meal.alternatives.find(
+              (alternative: MealAlternative) =>
+                alternative.templateId === selectedBySlot[meal.slot],
+            );
+            const displayedRecommendation = selectedAlternative
+              ? { name: selectedAlternative.name, servingText: selectedAlternative.servingText }
+              : meal.recommendation;
+            const displayedNutrition = selectedAlternative?.nutrition ?? meal.nutrition;
+            const substitutionGroups: PracticalSubstitutionGroup[] =
+              selectedAlternative?.practicalSubstitutions ?? meal.practicalSubstitutions;
+
+            return (
             <li key={meal.slot} className="rounded-control border border-ink/8 px-3 py-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -462,18 +489,18 @@ function TodayMealSummary({ plan }: { plan: TodayCoachPlan }) {
                     {meal.slot} · {meal.scheduledTime}
                   </p>
                   <p className="text-sm font-semibold text-ink">
-                    {meal.recommendation.name}
+                    {displayedRecommendation.name}
                   </p>
                   <p className="text-xs text-ink-muted">
-                    {meal.recommendation.servingText}
+                    {displayedRecommendation.servingText}
                   </p>
                 </div>
                 <p className="shrink-0 text-right text-xs text-ink-muted">
-                  {meal.nutrition.caloriesKcal} kcal
+                  {displayedNutrition.caloriesKcal} kcal
                   <br />
-                  P {meal.nutrition.proteinG} g · C{" "}
-                  {meal.nutrition.carbohydrateG ?? "—"} g · F{" "}
-                  {meal.nutrition.fatG ?? "—"} g
+                  P {displayedNutrition.proteinG} g · C{" "}
+                  {displayedNutrition.carbohydrateG ?? "—"} g · F{" "}
+                  {displayedNutrition.fatG ?? "—"} g
                 </p>
               </div>
               <ul className="mt-2 grid gap-1 text-xs text-ink-muted">
@@ -488,28 +515,97 @@ function TodayMealSummary({ plan }: { plan: TodayCoachPlan }) {
                   {meal.confirmedConsumption.nutrition.proteinG} g protein
                 </p>
               )}
-              <p className="mt-2 text-xs font-medium text-ink">
-                Remaining after {meal.slot}:{" "}
-                {meal.remainingAfterMeal.caloriesKcal} kcal ·{" "}
-                {meal.remainingAfterMeal.proteinG} g protein
-              </p>
-              {meal.nextMealImpact && (
-                <p className="mt-1 text-xs text-ink-muted">
-                  {meal.nextMealImpact}
-                </p>
+              {selectedAlternative ? (
+                <div className="mt-2 rounded-control bg-petal-soft px-3 py-2 text-xs text-ink">
+                  <p className="font-semibold">Menu pengganti dipilih</p>
+                  <p className="mt-1 text-ink-muted">
+                    Sisa target belum dihitung ulang sampai menu ini kamu konfirmasi atau edit di Meal Log.
+                  </p>
+                  <Link href="/meal" className="mt-1 inline-block font-semibold text-rose-strong underline">
+                    Konfirmasi / edit di Meal Log
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  <p className="mt-2 text-xs font-medium text-ink">
+                    Remaining after {meal.slot}: {meal.remainingAfterMeal.caloriesKcal} kcal ·{" "}
+                    {meal.remainingAfterMeal.proteinG} g protein
+                  </p>
+                  {meal.nextMealImpact && (
+                    <p className="mt-1 text-xs text-ink-muted">{meal.nextMealImpact}</p>
+                  )}
+                </>
               )}
-              {meal.alternatives.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-xs font-semibold text-ink">Approved alternatives</p>
-                  <ul className="mt-1 grid gap-1 text-xs text-ink-muted">
-                    {meal.alternatives.map((alternative: MealAlternative) => (
-                      <li key={alternative.templateId}>
-                        {alternative.name} · {alternative.servingText} ·{" "}
-                        {alternative.nutrition.caloriesKcal} kcal ·{" "}
-                        {alternative.nutrition.proteinG} g protein
-                      </li>
-                    ))}
-                  </ul>
+              <button
+                type="button"
+                className="mt-3 min-h-11 w-full rounded-control border border-rose-strong/30 bg-petal-soft px-3 py-2 text-sm font-semibold text-rose-strong"
+                aria-expanded={Boolean(openSlots[meal.slot])}
+                aria-controls={`meal-alternatives-${meal.slot}`}
+                onClick={() => setOpenSlots((current) => ({ ...current, [meal.slot]: !current[meal.slot] }))}
+              >
+                Ganti menu
+              </button>
+              {openSlots[meal.slot] && (
+                <div id={`meal-alternatives-${meal.slot}`} className="mt-3 rounded-control bg-petal-soft/60 p-3">
+                  <p className="text-sm font-semibold text-ink">
+                    Nggak ada menu ini? Pilih yang paling gampang kamu dapetin hari ini 💗
+                  </p>
+                  {meal.alternatives.length === 0 ? (
+                    <p className="mt-2 text-xs text-ink-muted">
+                      Belum ada opsi ganti yang cocok. Kamu bisa input manual dulu ya 💗
+                    </p>
+                  ) : (
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {meal.alternatives.map((alternative: MealAlternative) => (
+                        <button
+                          type="button"
+                          key={alternative.templateId}
+                          aria-label={`Pilih ${alternative.name} untuk ${meal.slot}`}
+                          className="min-h-16 rounded-control border border-rose-strong/25 bg-white/75 px-3 py-2 text-left text-xs text-ink"
+                          onClick={() => setSelectedBySlot((current) => ({ ...current, [meal.slot]: alternative.templateId }))}
+                        >
+                          <span className="block font-semibold">{alternative.name}</span>
+                          <span className="block text-ink-muted">{alternative.servingText}</span>
+                          <span className="mt-1 block text-ink-muted">
+                            {alternative.nutrition.caloriesKcal} kcal · {alternative.nutrition.proteinG} g protein
+                          </span>
+                          <span className="mt-1 block font-medium text-rose-strong">
+                            Katalog lokal{alternative.availability === "optional" ? " · opsional" : ""}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {selectedAlternative && (
+                    <button
+                      type="button"
+                      className="mt-2 text-xs font-semibold text-rose-strong underline"
+                      onClick={() => setSelectedBySlot((current) => {
+                        const next = { ...current };
+                        delete next[meal.slot];
+                        return next;
+                      })}
+                    >
+                      Pakai menu awal
+                    </button>
+                  )}
+                  {substitutionGroups.length > 0 && (
+                    <div className="mt-3 grid gap-3">
+                      {substitutionGroups.map((group) => (
+                        <div key={group.role}>
+                          <p className="text-xs font-semibold text-ink">{roleLabels[group.role]}</p>
+                          <ul className="mt-1 flex flex-wrap gap-1.5">
+                            {group.options.slice(0, 4).map((option) => (
+                              <li key={option.id} className="rounded-full border border-rose-strong/20 bg-white/75 px-2 py-1 text-xs text-ink-muted">
+                                {option.label} · {option.nutritionStatus === "approved" ? "Katalog lokal" : "Perlu konfirmasi"}
+                                {option.availability === "optional" ? " · opsional" : ""}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               {meal.officeLunchAdjustment && (
@@ -535,7 +631,8 @@ function TodayMealSummary({ plan }: { plan: TodayCoachPlan }) {
                 </div>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       </section>
     </GlassCard>
