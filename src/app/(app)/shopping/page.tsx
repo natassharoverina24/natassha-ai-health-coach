@@ -1,150 +1,101 @@
 "use client";
 
-import { useState } from "react";
-import type { FormEvent } from "react";
-import { Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
-import { useAuth } from "@/contexts/AuthContext";
-import { useFirestoreCollection } from "@/hooks";
-import { shoppingRepository } from "@/lib/db/shopping.repository";
+import { AutoShoppingList } from "@/components/shopping";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { cn } from "@/lib/utils/cn";
-import type { ShoppingCategory, ShoppingItem } from "@/types/firestore";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  buildCoachDecision,
+  buildPlannerUserContext,
+} from "@/lib/ai/contextBuilder";
+import { generateWeeklyMealPrep } from "@/lib/planner";
+import {
+  buildShoppingListFromMealPlan,
+  readMealReplacementSelections,
+  type ShoppingListResult,
+} from "@/lib/shopping-list";
 
-const CATEGORIES: { value: ShoppingCategory; label: string }[] = [
-  { value: "protein", label: "Protein" },
-  { value: "produce", label: "Produce" },
-  { value: "pantry", label: "Pantry" },
-  { value: "dairy", label: "Dairy" },
-  { value: "supplements", label: "Supplements" },
-  { value: "other", label: "Other" },
-];
+type ShoppingPageState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "ready"; result: ShoppingListResult };
 
 export default function ShoppingPage() {
   const { user } = useAuth();
-  const uid = user?.uid ?? null;
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState<ShoppingCategory>("other");
-  const [adding, setAdding] = useState(false);
+  const userId = user?.uid ?? null;
+  const [state, setState] = useState<ShoppingPageState>({ status: "loading" });
 
-  const { data: items, loading } = useFirestoreCollection<ShoppingItem>(
-    uid ? (onData, onError) => shoppingRepository.subscribeForUser(uid, onData, onError) : null,
-    [uid],
-  );
-
-  const handleAdd = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!uid || !name.trim()) return;
-    setAdding(true);
-    try {
-      await shoppingRepository.create({
-        userId: uid,
-        name: name.trim(),
-        category,
-        quantity: null,
-        checked: false,
-        addedFrom: "manual",
+  const load = useCallback(async () => {
+    if (!userId) {
+      setState({
+        status: "ready",
+        result: { status: "empty", items: [], warnings: [] },
       });
-      setName("");
-    } finally {
-      setAdding(false);
+      return;
     }
-  };
 
-  const toggle = async (id: string, checked: boolean) => {
-    await shoppingRepository.toggleChecked(id, !checked);
-  };
+    setState({ status: "loading" });
+    try {
+      const [decision, context] = await Promise.all([
+        buildCoachDecision(userId),
+        buildPlannerUserContext(userId),
+      ]);
+      const weekly = generateWeeklyMealPrep({
+        decision,
+        context,
+        officeLunchByDate: {},
+        ingredientCatalogue: {},
+      });
+      const days = weekly.status === "success" ? weekly.days : weekly.days ?? [];
+      setState({
+        status: "ready",
+        result: buildShoppingListFromMealPlan({
+          days,
+          selectedReplacements: readMealReplacementSelections(userId),
+        }),
+      });
+    } catch {
+      setState({ status: "error" });
+    }
+  }, [userId]);
 
-  const remove = async (id: string) => {
-    await shoppingRepository.remove(id);
-  };
-
-  const grouped = CATEGORIES.map((c) => ({ ...c, items: items.filter((i) => i.category === c.value) })).filter(
-    (g) => g.items.length > 0,
-  );
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void load();
+    });
+    return () => {
+      active = false;
+    };
+  }, [load]);
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title="Shopping" description="Your running grocery list." />
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        title="Shopping List"
+        description="Daftar belanja otomatis dari meal plan mingguanmu."
+      />
 
-      <GlassCard>
-        <form onSubmit={handleAdd} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <Input
-              label="Item"
-              placeholder="e.g. Greek yogurt"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-ink">Category</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as ShoppingCategory)}
-              className="h-12 rounded-control border border-ink/10 bg-bg-elevated px-4 text-sm text-ink focus:border-rose"
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button type="submit" leadingIcon={<Plus size={16} />} isLoading={adding} disabled={!name.trim()}>
-            Add
-          </Button>
-        </form>
-      </GlassCard>
-
-      {loading ? (
-        <Skeleton className="h-40 w-full rounded-card" />
-      ) : items.length === 0 ? (
+      {state.status === "loading" ? (
+        <div role="status" aria-label="Memuat shopping list" className="grid gap-4">
+          <Skeleton className="h-24 w-full rounded-card" />
+          <Skeleton className="h-44 w-full rounded-card" />
+        </div>
+      ) : state.status === "error" ? (
         <GlassCard>
-          <EmptyState
-            icon={<ShoppingCart size={28} />}
-            title="Your list is empty"
-            description="Add staples above, or check things off as you shop."
-          />
+          <p role="alert" className="text-sm text-ink-muted">
+            Shopping list belum bisa dimuat sekarang. Coba lagi sebentar ya 💗
+          </p>
+          <Button type="button" variant="outline" className="mt-3" onClick={() => void load()}>
+            Coba lagi
+          </Button>
         </GlassCard>
       ) : (
-        <div className="flex flex-col gap-4">
-          {grouped.map((group) => (
-            <GlassCard key={group.value} padding="none" className="overflow-hidden">
-              <p className="px-5 pt-4 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                {group.label}
-              </p>
-              <ul className="divide-y divide-ink/8">
-                {group.items.map((item) => (
-                  <li key={item.id} className="flex items-center gap-3 px-5 py-3.5">
-                    <input
-                      type="checkbox"
-                      checked={item.checked}
-                      onChange={() => void toggle(item.id, item.checked)}
-                      className="h-5 w-5 rounded accent-[var(--color-rose)]"
-                      aria-label={`Mark ${item.name} as bought`}
-                    />
-                    <span className={cn("flex-1 text-sm text-ink", item.checked && "text-ink-faint line-through")}>
-                      {item.name}
-                    </span>
-                    <button
-                      onClick={() => void remove(item.id)}
-                      aria-label="Remove item"
-                      className="rounded-full p-2 text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </GlassCard>
-          ))}
-        </div>
+        <AutoShoppingList result={state.result} />
       )}
     </div>
   );
