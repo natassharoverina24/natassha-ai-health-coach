@@ -180,6 +180,18 @@ function makePlan(status: TodayCoachPlan["status"] = "ready"): TodayCoachPlan {
         progressPercent: null,
         sourceIds: ["repository.workouts"],
       },
+      calorieSummary: {
+        status: "ready",
+        caloriesEaten: { value: 700, unit: "kcal", status: "ready", sourceIds: ["repository.meals"] },
+        workoutCaloriesBurned: { value: 200, unit: "kcal", status: "estimated", sourceIds: ["repository.workouts"] },
+        netCalories: { value: 500, unit: "kcal", status: "ready", sourceIds: ["repository.meals", "repository.workouts"] },
+        remainingCalories: { value: 900, unit: "kcal", status: "ready", sourceIds: ["planner.daily.targets.calories"] },
+        targetCaloriesKcal: 1400,
+        workoutEntryCount: 1,
+        unresolvedWorkoutCount: 0,
+        formula: "net = eaten - workout; remaining = target - net",
+        sourceIds: ["repository.meals", "repository.workouts"],
+      },
       body: {
         weightKg: {
           value: 65,
@@ -331,6 +343,16 @@ describe("Today dashboard", () => {
     expect(screen.getByRole("heading", { name: "Kemenangan hari ini" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Jadwal hari ini" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Panduan makan" })).toBeInTheDocument();
+    const calorieSummary = screen.getByRole("heading", { name: "Ringkasan kalori hari ini" }).closest("section");
+    expect(calorieSummary).not.toBeNull();
+    expect(within(calorieSummary!).getByText("Kalori masuk")).toBeInTheDocument();
+    expect(within(calorieSummary!).getByText("Kalori olahraga")).toBeInTheDocument();
+    expect(within(calorieSummary!).getByText("Net kalori")).toBeInTheDocument();
+    expect(within(calorieSummary!).getByText("Sisa kalori")).toBeInTheDocument();
+    expect(within(calorieSummary!).getByText("700 kcal")).toBeInTheDocument();
+    expect(within(calorieSummary!).getByText("200 kcal")).toBeInTheDocument();
+    expect(within(calorieSummary!).getByText("500 kcal")).toBeInTheDocument();
+    expect(within(calorieSummary!).getByText("900 kcal")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ringkasan kesehatan" })).toBeInTheDocument();
     expect(screen.getByText("Progress utama hari ini")).toBeInTheDocument();
     expect(screen.getByText("Tubuh & energi")).toBeInTheDocument();
@@ -339,6 +361,48 @@ describe("Today dashboard", () => {
     expect(screen.getByText("Remember the retained motivation.")).toBeInTheDocument();
     expect(screen.getAllByText(/Sisa setelah/)).toHaveLength(4);
     expect(screen.getAllByRole("button", { name: "Ganti menu" })).toHaveLength(4);
+  });
+
+  it("shows a friendly partial calorie state when target or workout calories are unavailable", () => {
+    const plan = makePlan();
+    plan.metrics.calorieSummary = {
+      ...plan.metrics.calorieSummary,
+      status: "partial",
+      workoutCaloriesBurned: {
+        value: null,
+        unit: "kcal",
+        status: "empty",
+        sourceIds: ["repository.workouts"],
+      },
+      netCalories: {
+        value: null,
+        unit: "kcal",
+        status: "empty",
+        sourceIds: ["repository.meals", "repository.workouts"],
+      },
+      remainingCalories: {
+        value: null,
+        unit: "kcal",
+        status: "empty",
+        sourceIds: ["planner.daily.targets.calories"],
+      },
+      targetCaloriesKcal: null,
+      workoutEntryCount: 0,
+      unresolvedWorkoutCount: 0,
+    };
+    (useTodayCoachPlan as jest.Mock).mockReturnValue({
+      plan,
+      loading: false,
+      refreshing: false,
+      error: null,
+      refresh,
+    });
+
+    render(<TodayDashboard />);
+    const summary = screen.getByRole("heading", { name: "Ringkasan kalori hari ini" }).closest("section");
+    expect(within(summary!).getByText("Belum ada workout tercatat")).toBeInTheDocument();
+    expect(within(summary!).getByText("Target belum tersedia")).toBeInTheDocument();
+    expect(summary).not.toHaveTextContent(/Infinity|NaN/);
   });
 
   it("renders a mobile-first action hub with eight working destinations", () => {

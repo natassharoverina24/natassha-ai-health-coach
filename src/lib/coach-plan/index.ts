@@ -5,4 +5,5 @@ export * from "./availability";
 export * from "./cache";
 export * from "./buildMealGuidance";
 export * from "./buildMetricSummary";
+export * from "./buildCalorieSummary";
 export * from "./buildEmergencySummary";

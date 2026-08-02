@@ -11,7 +11,7 @@ function makeWorkout(overrides: Partial<WorkoutEntry> = {}): WorkoutEntry {
     updatedAt: "2026-07-25T08:00:00.000Z",
     userId: "u1",
     date: "2026-07-25",
-    name: "Run",
+    name: "Treadmill",
     durationMin: 20,
     note: null,
     ...overrides,
@@ -31,88 +31,112 @@ function makeSleep(overrides: Partial<SleepEntry> = {}): SleepEntry {
   };
 }
 
+const baseProps = {
+  todaysWorkouts: [] as WorkoutEntry[],
+  todaysSleep: null as SleepEntry | null,
+  userWeightKg: 60,
+  onLogWorkout: jest.fn().mockResolvedValue(undefined),
+  onLogSleep: jest.fn().mockResolvedValue(undefined),
+};
+
 describe("WorkoutSleepQuickLogCard", () => {
-  it("renders both quick-log forms", () => {
-    render(
-      <WorkoutSleepQuickLogCard
-        todaysWorkouts={[]}
-        todaysSleep={null}
-        onLogWorkout={jest.fn()}
-        onLogSleep={jest.fn()}
-      />,
-    );
-    expect(screen.getByText("Today's workout")).toBeInTheDocument();
-    expect(screen.getByText("Last night's sleep")).toBeInTheDocument();
+  beforeEach(() => jest.clearAllMocks());
+
+  it("renders workout and sleep as separate progress sections", () => {
+    const { container } = render(<WorkoutSleepQuickLogCard {...baseProps} />);
+    expect(screen.getByRole("heading", { name: "Progress workout" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Progress tidur" })).toBeInTheDocument();
+    expect(container.firstChild).toHaveClass("grid", "lg:grid-cols-2");
   });
 
-  it("shows total minutes logged today when workouts exist", () => {
-    render(
-      <WorkoutSleepQuickLogCard
-        todaysWorkouts={[makeWorkout({ durationMin: 20 }), makeWorkout({ id: "w2", durationMin: 15 })]}
-        todaysSleep={null}
-        onLogWorkout={jest.fn()}
-        onLogSleep={jest.fn()}
-      />,
+  it("accepts treadmill duration and generates a transparent calorie estimate", async () => {
+    const user = userEvent.setup();
+    const onLogWorkout = jest.fn().mockResolvedValue(undefined);
+    render(<WorkoutSleepQuickLogCard {...baseProps} onLogWorkout={onLogWorkout} />);
+
+    await user.type(screen.getByLabelText("Durasi"), "30");
+    expect(screen.getByLabelText("Kalori olahraga")).toHaveValue(189);
+    expect(screen.getByText(/Kalori olahraga ini estimasi ya/)).toBeInTheDocument();
+    expect(screen.getByText(/MET 6, durasi 30 menit, dan berat 60 kg/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Simpan workout" }));
+
+    expect(onLogWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Treadmill",
+        activityType: "treadmill",
+        durationMin: 30,
+        caloriesBurnedKcal: 189,
+        calorieEstimate: expect.objectContaining({
+          method: "met-local",
+          userConfirmed: true,
+          wasEdited: false,
+        }),
+      }),
     );
-    expect(screen.getByText("35 min logged")).toBeInTheDocument();
   });
 
-  it("shows already-logged sleep hours and offers to update", () => {
-    render(
-      <WorkoutSleepQuickLogCard
-        todaysWorkouts={[]}
-        todaysSleep={makeSleep({ hoursSlept: 6.5 })}
-        onLogWorkout={jest.fn()}
-        onLogSleep={jest.fn()}
-      />,
+  it("lets the user override the estimated workout calories", async () => {
+    const user = userEvent.setup();
+    const onLogWorkout = jest.fn().mockResolvedValue(undefined);
+    render(<WorkoutSleepQuickLogCard {...baseProps} onLogWorkout={onLogWorkout} />);
+    await user.type(screen.getByLabelText("Durasi"), "30");
+    await user.clear(screen.getByLabelText("Kalori olahraga"));
+    await user.type(screen.getByLabelText("Kalori olahraga"), "215");
+    await user.click(screen.getByRole("button", { name: "Simpan workout" }));
+    expect(onLogWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        caloriesBurnedKcal: 215,
+        calorieEstimate: expect.objectContaining({ wasEdited: true }),
+      }),
     );
-    expect(screen.getByText("6.5h logged")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Update" })).toBeInTheDocument();
   });
 
-  it("submits the workout name and duration", async () => {
+  it("shows a partial estimate when weight is missing and accepts manual calories", async () => {
+    const user = userEvent.setup();
     const onLogWorkout = jest.fn().mockResolvedValue(undefined);
     render(
       <WorkoutSleepQuickLogCard
-        todaysWorkouts={[]}
-        todaysSleep={null}
+        {...baseProps}
+        userWeightKg={null}
         onLogWorkout={onLogWorkout}
-        onLogSleep={jest.fn()}
       />,
     );
-    await userEvent.type(screen.getByPlaceholderText("e.g. Brisk walk"), "Yoga");
-    await userEvent.type(screen.getByPlaceholderText("min"), "25");
-    await userEvent.click(screen.getByRole("button", { name: "Log workout" }));
-    expect(onLogWorkout).toHaveBeenCalledWith("Yoga", 25);
-  });
-
-  it("does not submit the workout form with an empty name", async () => {
-    const onLogWorkout = jest.fn();
-    render(
-      <WorkoutSleepQuickLogCard
-        todaysWorkouts={[]}
-        todaysSleep={null}
-        onLogWorkout={onLogWorkout}
-        onLogSleep={jest.fn()}
-      />,
+    await user.type(screen.getByLabelText("Durasi"), "30");
+    expect(screen.getByText(/Berat badan belum tersedia/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Simpan workout" })).toBeDisabled();
+    await user.type(screen.getByLabelText("Kalori olahraga"), "180");
+    await user.click(screen.getByRole("button", { name: "Simpan workout" }));
+    expect(onLogWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({ caloriesBurnedKcal: 180 }),
     );
-    await userEvent.type(screen.getByPlaceholderText("min"), "25");
-    await userEvent.click(screen.getByRole("button", { name: "Log workout" }));
-    expect(onLogWorkout).not.toHaveBeenCalled();
   });
 
-  it("submits sleep hours", async () => {
+  it("calculates overnight sleep and submits structured times", async () => {
+    const user = userEvent.setup();
     const onLogSleep = jest.fn().mockResolvedValue(undefined);
+    render(<WorkoutSleepQuickLogCard {...baseProps} onLogSleep={onLogSleep} />);
+    await user.type(screen.getByLabelText("Jam tidur"), "23:30");
+    await user.type(screen.getByLabelText("Jam bangun"), "06:00");
+    expect(screen.getByText("Tidurmu sekitar 6 jam 30 menit.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Simpan tidur" }));
+    expect(onLogSleep).toHaveBeenCalledWith({
+      sleepAt: "23:30",
+      wakeAt: "06:00",
+      hoursSlept: 6.5,
+      quality: null,
+    });
+  });
+
+  it("shows existing progress without diagnostic or medical copy", () => {
     render(
       <WorkoutSleepQuickLogCard
-        todaysWorkouts={[]}
-        todaysSleep={null}
-        onLogWorkout={jest.fn()}
-        onLogSleep={onLogSleep}
+        {...baseProps}
+        todaysWorkouts={[makeWorkout({ durationMin: 20 }), makeWorkout({ id: "w2", durationMin: 15 })]}
+        todaysSleep={makeSleep({ hoursSlept: 6.5 })}
       />,
     );
-    await userEvent.type(screen.getByLabelText("Hours slept"), "7.5");
-    await userEvent.click(screen.getByRole("button", { name: "Log sleep" }));
-    expect(onLogSleep).toHaveBeenCalledWith(7.5);
+    expect(screen.getByText("35 menit")).toBeInTheDocument();
+    expect(screen.getByText("6.5 jam")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/diagnosis|insomnia|treatment|medical/i);
   });
 });

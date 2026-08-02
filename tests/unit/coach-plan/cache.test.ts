@@ -87,6 +87,18 @@ function planFixture(): TodayCoachPlan {
         progressPercent: 0,
         sourceIds: ["workouts"],
       },
+      calorieSummary: {
+        status: "ready",
+        caloriesEaten: { value: 0, unit: "kcal", status: "empty", sourceIds: ["meals"] },
+        workoutCaloriesBurned: { value: null, unit: "kcal", status: "empty", sourceIds: ["workouts"] },
+        netCalories: { value: 0, unit: "kcal", status: "ready", sourceIds: ["meals", "workouts"] },
+        remainingCalories: { value: 1400, unit: "kcal", status: "ready", sourceIds: ["targets"] },
+        targetCaloriesKcal: 1400,
+        workoutEntryCount: 0,
+        unresolvedWorkoutCount: 0,
+        formula: "net = eaten - workout; remaining = target - net",
+        sourceIds: ["meals", "workouts", "targets"],
+      },
       body: {
         weightKg: { value: null, unit: "kg", status: "empty", sourceIds: ["weights"] },
         waistCm: { value: null, unit: "cm", status: "empty", sourceIds: ["waists"] },
