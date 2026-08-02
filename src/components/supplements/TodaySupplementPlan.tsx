@@ -17,6 +17,7 @@ interface TodaySupplementPlanProps {
     status: Exclude<SupplementStatus, "planned">,
   ) => void | Promise<void>;
   onRemove?: (supplementId: string) => void | Promise<void>;
+  onEdit?: (item: SupplementPlanItem) => void;
 }
 
 function scheduleLabel(item: SupplementPlanItem): string {
@@ -29,6 +30,7 @@ export function TodaySupplementPlan({
   savingId = null,
   onStatus,
   onRemove,
+  onEdit,
 }: TodaySupplementPlanProps) {
   if (plan.length === 0) {
     return (
@@ -124,14 +126,26 @@ export function TodaySupplementPlan({
                       </button>
                     </div>
                     {onRemove && (
-                      <button
-                        type="button"
-                        disabled={saving}
-                        onClick={() => void onRemove(item.supplementId)}
-                        className="mt-3 text-xs font-medium text-ink-faint underline"
-                      >
-                        Nonaktifkan supplement
-                      </button>
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        {onEdit && (
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => onEdit(item)}
+                            className="text-xs font-medium text-rose-strong underline"
+                          >
+                            Ubah jadwal
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() => void onRemove(item.supplementId)}
+                          className="text-xs font-medium text-ink-faint underline"
+                        >
+                          Nonaktifkan supplement
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

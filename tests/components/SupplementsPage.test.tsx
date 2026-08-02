@@ -100,8 +100,50 @@ describe("Supplements page", () => {
           dosage: null,
           provenance: "user_confirmed",
           userConfirmed: true,
-          timesOfDay: [],
+          timesOfDay: ["08:00"],
         }),
+      ),
+    );
+  });
+
+  it("shows a general D3 timing suggestion and lets the user override it", async () => {
+    const user = userEvent.setup();
+    render(<SupplementsPage />);
+
+    await user.click(screen.getByRole("button", { name: "Tambah supplement" }));
+    await user.type(screen.getByLabelText("Nama supplement"), "Vitamin D3");
+
+    expect(screen.getByText("Saran waktu umum")).toBeInTheDocument();
+    expect(screen.getByText("Bisa kamu ubah")).toBeInTheDocument();
+    expect(screen.getByText(/lebih nyaman diminum bareng makan/i)).toBeInTheDocument();
+    expect(screen.getByText(/bukan instruksi medis/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Waktu pengingat (opsional)")).toHaveValue("08:00");
+
+    await user.clear(screen.getByLabelText("Waktu pengingat (opsional)"));
+    await user.type(screen.getByLabelText("Waktu pengingat (opsional)"), "14:35");
+    expect(screen.getByText("Aku pakai jadwal yang kamu pilih ya.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Simpan" }));
+    await waitFor(() =>
+      expect(supplementsRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ timesOfDay: ["14:35"] }),
+      ),
+    );
+  });
+
+  it("shows and preserves the saved time while editing", async () => {
+    const user = userEvent.setup();
+    render(<SupplementsPage />);
+
+    await user.click(screen.getByRole("button", { name: "Ubah jadwal" }));
+    expect(screen.getByLabelText("Waktu pengingat (opsional)")).toHaveValue("08:00");
+    expect(screen.getByText("Aku pakai jadwal yang kamu pilih ya.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Simpan perubahan" }));
+    await waitFor(() =>
+      expect(supplementsRepository.update).toHaveBeenCalledWith(
+        "supplement-1",
+        expect.objectContaining({ timesOfDay: ["08:00"] }),
       ),
     );
   });
