@@ -10,9 +10,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-rose-strong text-white shadow-[0_10px_24px_-12px_rgba(156,113,100,0.55)] hover:brightness-95",
+          "bg-rose-strong text-white shadow-[0_10px_24px_-12px_rgba(195,131,128,0.7)] hover:brightness-95",
         secondary:
-          "bg-petal text-ink hover:brightness-95",
+          "border border-rose/20 bg-petal-soft text-rose-strong hover:bg-taupe-soft",
         ghost: "bg-transparent text-ink hover:bg-ink/5",
         outline:
           "border border-ink/10 bg-transparent text-ink hover:bg-ink/5",

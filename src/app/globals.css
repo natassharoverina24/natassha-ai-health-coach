@@ -23,11 +23,11 @@
   --color-ink-faint: #9c8179;
 
   --color-rose: #c38380;
-  --color-rose-strong: #8a5c55;
+  --color-rose-strong: #9b5f65;
   --color-petal: #d8b69f;
-  --color-petal-soft: #f2dfd5;
+  --color-petal-soft: #fce8ee;
   --color-taupe: #9c7164;
-  --color-taupe-soft: #eadbd4;
+  --color-taupe-soft: #f9dde5;
   --color-amber: #9c7164;
   --color-amber-soft: #e8e1d1;
   --color-lavender: #c38380;
@@ -40,12 +40,12 @@
   --radius-control: 1rem;
   --radius-pill: 999px;
 
-  --shadow-card: 0 8px 30px -14px rgba(156, 113, 100, 0.28),
+  --shadow-card: 0 8px 30px -14px rgba(195, 131, 128, 0.32),
     0 2px 8px -2px rgba(75, 52, 44, 0.06);
-  --shadow-float: 0 16px 48px -18px rgba(156, 113, 100, 0.4);
+  --shadow-float: 0 16px 48px -18px rgba(195, 131, 128, 0.44);
 
-  --glass-bg: rgba(255, 249, 246, 0.86);
-  --glass-border: rgba(232, 216, 210, 0.9);
+  --glass-bg: rgba(255, 249, 250, 0.9);
+  --glass-border: rgba(195, 131, 128, 0.28);
   --glass-blur: 20px;
 }
 
@@ -61,11 +61,11 @@
   --color-ink-faint: #9c7164;
 
   --color-rose: #c38380;
-  --color-rose-strong: #8a5c55;
+  --color-rose-strong: #9b5f65;
   --color-petal: #d8b69f;
-  --color-petal-soft: #eadbd4;
+  --color-petal-soft: #f9dde5;
   --color-taupe: #9c7164;
-  --color-taupe-soft: #decac0;
+  --color-taupe-soft: #f7d6df;
   --color-amber: #9c7164;
   --color-amber-soft: #ddd3c2;
   --color-lavender: #c38380;
@@ -74,12 +74,12 @@
   --color-warning: #9c7164;
   --color-danger: #8f4654;
 
-  --shadow-card: 0 8px 30px -14px rgba(75, 52, 44, 0.24),
+  --shadow-card: 0 8px 30px -14px rgba(195, 131, 128, 0.34),
     0 2px 8px -2px rgba(75, 52, 44, 0.08);
-  --shadow-float: 0 16px 48px -18px rgba(75, 52, 44, 0.32);
+  --shadow-float: 0 16px 48px -18px rgba(195, 131, 128, 0.42);
 
-  --glass-bg: rgba(247, 242, 238, 0.88);
-  --glass-border: rgba(195, 131, 128, 0.22);
+  --glass-bg: rgba(255, 249, 250, 0.9);
+  --glass-border: rgba(195, 131, 128, 0.3);
 }
 
 @theme inline {
@@ -133,8 +133,8 @@ body {
 /* Radial wash behind the app shell — subtle, not a "gradient hero" cliché. */
 .app-backdrop {
   background:
-    radial-gradient(60% 45% at 12% -10%, color-mix(in srgb, var(--color-petal) 35%, transparent), transparent 60%),
-    radial-gradient(50% 40% at 100% 0%, color-mix(in srgb, var(--color-taupe) 14%, transparent), transparent 60%),
+    radial-gradient(60% 45% at 12% -10%, color-mix(in srgb, var(--color-rose) 30%, transparent), transparent 60%),
+    radial-gradient(50% 40% at 100% 0%, color-mix(in srgb, var(--color-petal) 22%, transparent), transparent 60%),
     var(--color-bg);
 }
 

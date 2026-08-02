@@ -9,7 +9,7 @@ const badgeVariants = cva(
     variants: {
       tone: {
         rose: "bg-petal-soft text-rose-strong",
-        taupe: "bg-taupe-soft text-rose-strong",
+        taupe: "border border-rose/15 bg-taupe-soft text-rose-strong",
         amber: "bg-amber-soft text-amber",
         neutral: "bg-ink/5 text-ink-muted",
         success: "bg-success/15 text-success",

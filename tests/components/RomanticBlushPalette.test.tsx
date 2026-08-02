@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { render, screen } from "@testing-library/react";
 
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 
 const source = (path: string) =>
@@ -35,6 +36,9 @@ describe("Romantic Blush visual system", () => {
       "#e8e1d1",
       "#d8b69f",
       "#c38380",
+      "#fce8ee",
+      "#f9dde5",
+      "#f7d6df",
       "#9c7164",
       "#4b342c",
       "#f7f2ee",
@@ -59,11 +63,12 @@ describe("Romantic Blush visual system", () => {
     expect(core).not.toMatch(/(?:bg|text|border|from|to)-(?:green|teal|emerald|cyan|lime)/i);
   });
 
-  it("uses warm accessible controls and taupe progress styling", () => {
+  it("uses pink-forward accessible controls, badges, and taupe progress styling", () => {
     render(
       <>
         <Button>Primary</Button>
         <Button variant="secondary">Secondary</Button>
+        <Badge tone="taupe">Status</Badge>
         <ProgressBar value={50} tone="taupe" label="Water" />
       </>,
     );
@@ -72,12 +77,18 @@ describe("Romantic Blush visual system", () => {
       "text-white",
     );
     expect(screen.getByRole("button", { name: "Secondary" })).toHaveClass(
-      "bg-petal",
-      "text-ink",
+      "bg-petal-soft",
+      "text-rose-strong",
     );
+    expect(screen.getByText("Status")).toHaveClass("bg-taupe-soft", "border-rose/15");
     expect(screen.getByRole("progressbar", { name: "Water" }).firstChild).toHaveClass(
       "bg-taupe",
     );
-    expect(contrast("#8A5C55", "#FFF9F6")).toBeGreaterThanOrEqual(4.5);
+    expect(contrast("#9B5F65", "#FFF9F6")).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("keeps the mobile active navigation visibly blush", () => {
+    const bottomNav = source("src/components/layout/BottomNav.tsx");
+    expect(bottomNav).toContain('active ? "bg-petal-soft text-rose-strong"');
   });
 });
