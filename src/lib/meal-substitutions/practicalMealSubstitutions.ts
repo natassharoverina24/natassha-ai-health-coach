@@ -143,6 +143,28 @@ export function classifyFoodRole(foodId: string): PracticalFoodRole | null {
   return PRACTICAL_FOOD_CATALOGUE.find((item) => item.id === foodId)?.role ?? null;
 }
 
+export function getTemplatePracticalFoods(
+  templateId: string,
+): PracticalMealSubstitute[] {
+  const seeds = TEMPLATE_ROLE_SEEDS[templateId];
+  if (!seeds) return [];
+
+  return seeds.flatMap(([, foodId]) => {
+    const item = PRACTICAL_FOOD_CATALOGUE.find(
+      (candidate) => candidate.id === foodId,
+    );
+    return item
+      ? [
+          {
+            ...item,
+            nutrition: item.nutrition ? { ...item.nutrition } : null,
+            sourceIds: [...item.sourceIds],
+          },
+        ]
+      : [];
+  });
+}
+
 export function getPracticalMealSubstitutes(
   role: PracticalFoodRole,
   excludedIds: readonly string[] = [],

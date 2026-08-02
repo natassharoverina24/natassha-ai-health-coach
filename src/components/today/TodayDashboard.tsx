@@ -29,6 +29,11 @@ import type {
   PracticalFoodRole,
   PracticalSubstitutionGroup,
 } from "@/lib/meal-substitutions";
+import {
+  clearMealReplacementSelection,
+  readMealReplacementSelections,
+  saveMealReplacementSelection,
+} from "@/lib/shopping-list";
 import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { timelineCompletionsRepository } from "@/lib/db/timelineCompletions.repository";
 import {
@@ -206,7 +211,11 @@ export function TodayDashboard() {
           error={timelineError}
           onComplete={completeTimelineItem}
         />
-        <TodayMealSummary plan={plan} />
+        <TodayMealSummary
+          key={`${user?.uid ?? "anonymous"}:${plan.date}`}
+          plan={plan}
+          userId={user?.uid ?? null}
+        />
       </div>
 
       <TodayMetrics plan={plan} quickWaterMl={quickWaterMl} />
@@ -450,15 +459,61 @@ function TodayTimeline({
   );
 }
 
-function TodayMealSummary({ plan }: { plan: TodayCoachPlan }) {
+function TodayMealSummary({
+  plan,
+  userId,
+}: {
+  plan: TodayCoachPlan;
+  userId: string | null;
+}) {
   const [openSlots, setOpenSlots] = useState<Record<string, boolean>>({});
-  const [selectedBySlot, setSelectedBySlot] = useState<Record<string, string>>({});
+  const [selectedBySlot, setSelectedBySlot] = useState<Record<string, string>>(
+    () =>
+      userId
+        ? Object.fromEntries(
+            readMealReplacementSelections(userId)
+              .filter((selection) => selection.date === plan.date)
+              .map((selection) => [selection.slot, selection.templateId]),
+          )
+        : {},
+  );
   const roleLabels: Record<PracticalFoodRole, string> = {
     protein: "Protein",
     carb: "Karbohidrat",
     "vegetable-fiber": "Sayur / fiber",
     "fruit-snack": "Buah / snack",
     drink: "Minuman",
+  };
+
+  const selectAlternative = (
+    meal: TodayCoachPlan["meals"][keyof TodayCoachPlan["meals"]],
+    alternative: MealAlternative,
+  ) => {
+    setSelectedBySlot((current) => ({
+      ...current,
+      [meal.slot]: alternative.templateId,
+    }));
+    if (userId) {
+      saveMealReplacementSelection({
+        userId,
+        date: plan.date,
+        slot: meal.slot,
+        templateId: alternative.templateId,
+        label: alternative.name,
+        selectedAt: new Date().toISOString(),
+      });
+    }
+  };
+
+  const resetAlternative = (
+    meal: TodayCoachPlan["meals"][keyof TodayCoachPlan["meals"]],
+  ) => {
+    setSelectedBySlot((current) => {
+      const next = { ...current };
+      delete next[meal.slot];
+      return next;
+    });
+    if (userId) clearMealReplacementSelection(userId, plan.date, meal.slot);
   };
 
   return (
@@ -562,7 +617,7 @@ function TodayMealSummary({ plan }: { plan: TodayCoachPlan }) {
                           key={alternative.templateId}
                           aria-label={`Pilih ${alternative.name} untuk ${meal.slot}`}
                           className="min-h-16 rounded-control border border-rose-strong/25 bg-white/75 px-3 py-2 text-left text-xs text-ink"
-                          onClick={() => setSelectedBySlot((current) => ({ ...current, [meal.slot]: alternative.templateId }))}
+                          onClick={() => selectAlternative(meal, alternative)}
                         >
                           <span className="block font-semibold">{alternative.name}</span>
                           <span className="block text-ink-muted">{alternative.servingText}</span>
@@ -580,11 +635,7 @@ function TodayMealSummary({ plan }: { plan: TodayCoachPlan }) {
                     <button
                       type="button"
                       className="mt-2 text-xs font-semibold text-rose-strong underline"
-                      onClick={() => setSelectedBySlot((current) => {
-                        const next = { ...current };
-                        delete next[meal.slot];
-                        return next;
-                      })}
+                      onClick={() => resetAlternative(meal)}
                     >
                       Pakai menu awal
                     </button>

@@ -284,6 +284,7 @@ function makePlan(status: TodayCoachPlan["status"] = "ready"): TodayCoachPlan {
 const refresh = jest.fn().mockResolvedValue(undefined);
 
 beforeEach(() => {
+  window.localStorage.clear();
   (useAuth as jest.Mock).mockReturnValue({ user: { uid: "user-1" } });
   (useTodayCoachPlan as jest.Mock).mockReturnValue({
     plan: makePlan(),
@@ -363,6 +364,9 @@ describe("Today dashboard", () => {
     expect(within(breakfastCard!).getByRole("link", { name: /konfirmasi.*meal log/i })).toHaveAttribute(
       "href",
       "/meal",
+    );
+    expect(window.localStorage.getItem("natassha-meal-replacements-v1")).toContain(
+      alternative.templateId,
     );
   });
 
