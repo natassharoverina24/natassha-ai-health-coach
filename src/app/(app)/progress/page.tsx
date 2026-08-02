@@ -12,6 +12,7 @@ import { waterLogsRepository } from "@/lib/db/waterLogs.repository";
 import { workoutsRepository } from "@/lib/db/workouts.repository";
 import { sleepLogsRepository } from "@/lib/db/sleepLogs.repository";
 import { settingsRepository } from "@/lib/db/settings.repository";
+import { invalidateTodayCoachPlanCache } from "@/lib/coach-plan/cache";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -35,6 +36,10 @@ import {
   computeWeeklyReview,
   getLastNDates,
 } from "@/lib/coach";
+import type {
+  ConfirmedSleepLogInput,
+  ConfirmedWorkoutLogInput,
+} from "@/lib/activity-tracking";
 import type {
   MealEntry,
   SleepEntry,
@@ -132,18 +137,37 @@ export default function ProgressPage() {
   const todaysWorkouts = workouts.filter((w) => w.date === today);
   const todaysSleep = sleepLogs.find((s) => s.date === today) ?? null;
 
-  const handleLogWorkout = async (name: string, durationMin: number) => {
+  const currentWeightKg =
+    weights[0]?.weightKg && weights[0].weightKg > 0
+      ? weights[0].weightKg
+      : profile?.startWeightKg && profile.startWeightKg > 0
+        ? profile.startWeightKg
+        : null;
+
+  const handleLogWorkout = async (input: ConfirmedWorkoutLogInput) => {
     if (!uid) return;
-    await workoutsRepository.create({ userId: uid, date: today, name, durationMin, note: null });
+    await workoutsRepository.create({
+      userId: uid,
+      date: today,
+      ...input,
+      note: null,
+    });
+    invalidateTodayCoachPlanCache();
   };
 
-  const handleLogSleep = async (hoursSlept: number) => {
+  const handleLogSleep = async (input: ConfirmedSleepLogInput) => {
     if (!uid) return;
     if (todaysSleep) {
-      await sleepLogsRepository.update(todaysSleep.id, { hoursSlept });
+      await sleepLogsRepository.update(todaysSleep.id, input);
     } else {
-      await sleepLogsRepository.create({ userId: uid, date: today, hoursSlept, note: null });
+      await sleepLogsRepository.create({
+        userId: uid,
+        date: today,
+        ...input,
+        note: null,
+      });
     }
+    invalidateTodayCoachPlanCache();
   };
 
   // ---- Existing weight/waist trend data (unchanged from Phase 1) ----------
@@ -183,6 +207,7 @@ export default function ProgressPage() {
           <WorkoutSleepQuickLogCard
             todaysWorkouts={todaysWorkouts}
             todaysSleep={todaysSleep}
+            userWeightKg={currentWeightKg}
             onLogWorkout={handleLogWorkout}
             onLogSleep={handleLogSleep}
           />

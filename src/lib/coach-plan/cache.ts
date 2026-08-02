@@ -1,7 +1,7 @@
 import type { TodayCoachPlan } from "./types";
 
 const CACHE_KEY = "today-coach-plan:last-known";
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 export const TODAY_COACH_PLAN_INVALIDATED_EVENT =
   "today-coach-plan:invalidated";
 

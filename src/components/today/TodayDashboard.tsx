@@ -19,6 +19,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodayCoachPlan } from "@/hooks";
 import type {
+  DailyCalorieSummary,
   GoalMetricValue,
   MealAlternative,
   MetricValue,
@@ -182,6 +183,7 @@ export function TodayDashboard() {
     <main className="flex min-w-0 flex-col gap-5" aria-labelledby="today-heading">
       <TodayHero plan={plan} refreshing={refreshing} onRefresh={refresh} />
       <TodayQuickActionHub />
+      <TodayCalorieSummary summary={plan.metrics.calorieSummary} />
 
       {plan.status === "partial" && (
         <p
@@ -809,8 +811,82 @@ function TodayMetrics({
   );
 }
 
+function TodayCalorieSummary({ summary }: { summary: DailyCalorieSummary }) {
+  const items = [
+    {
+      label: "Kalori masuk",
+      metric: summary.caloriesEaten,
+      empty: "Belum ada makanan tercatat",
+    },
+    {
+      label: "Kalori olahraga",
+      metric: summary.workoutCaloriesBurned,
+      empty: summary.workoutEntryCount === 0
+        ? "Belum ada workout tercatat"
+        : "Estimasi workout belum tersedia",
+    },
+    {
+      label: "Net kalori",
+      metric: summary.netCalories,
+      empty: "Belum bisa dihitung",
+    },
+    {
+      label: "Sisa kalori",
+      metric: summary.remainingCalories,
+      empty: summary.targetCaloriesKcal === null
+        ? "Target belum tersedia"
+        : "Belum bisa dihitung",
+    },
+  ];
+
+  return (
+    <GlassCard padding="sm">
+      <section aria-labelledby="calorie-summary-heading">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 id="calorie-summary-heading" className="text-sm font-semibold text-ink">
+              Ringkasan kalori hari ini
+            </h2>
+            <p className="mt-1 text-xs text-ink-muted">
+              Net = kalori masuk - estimasi kalori olahraga.
+            </p>
+          </div>
+          {summary.status === "partial" && (
+            <span className="rounded-full bg-petal-soft px-2 py-1 text-[10px] font-semibold text-rose-strong">
+              Data sebagian
+            </span>
+          )}
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {items.map(({ label, metric, empty }) => (
+            <div key={label} className="rounded-control border border-rose/15 bg-petal-soft/55 px-3 py-3">
+              <dt className="text-xs text-ink-muted">{label}</dt>
+              <dd className="mt-1 text-sm font-semibold text-ink">
+                {formatCalorieSummaryValue(metric, empty)}
+              </dd>
+              {metric.status === "estimated" && (
+                <p className="mt-1 text-[10px] font-medium text-rose-strong">Estimasi terkonfirmasi</p>
+              )}
+            </div>
+          ))}
+        </dl>
+      </section>
+    </GlassCard>
+  );
+}
+
+function formatCalorieSummaryValue(
+  metric: MetricValue,
+  empty: string,
+): string {
+  return metric.value !== null && Number.isFinite(metric.value)
+    && metric.status !== "empty"
+    ? `${metric.value.toLocaleString("id-ID")} kcal`
+    : empty;
+}
+
 function formatMetricValue(metric: MetricValue): string {
-  if (metric.value === null) return "Belum tersedia";
+  if (metric.value === null || !Number.isFinite(metric.value)) return "Belum tersedia";
   return `${metric.value.toLocaleString("id-ID")} ${metric.unit}`;
 }
 

@@ -220,6 +220,29 @@ export interface ActiveDisruption extends BaseDocument {
 // workouts
 // -----------------------------------------------------------------------------
 
+export type WorkoutActivityType =
+  | "treadmill"
+  | "walking"
+  | "running"
+  | "cycling"
+  | "strength-training"
+  | "yoga-stretching"
+  | "other";
+
+export type WorkoutIntensity = "light" | "moderate" | "vigorous";
+
+export interface WorkoutCalorieEstimateAudit {
+  method: "met-local";
+  estimatedCaloriesKcal: number | null;
+  confirmedCaloriesKcal: number;
+  met: number | null;
+  weightKgUsed: number | null;
+  userConfirmed: true;
+  wasEdited: boolean;
+  assumptions: string[];
+  estimatedAt: ISODateString;
+}
+
 /**
  * A logged workout session (Phase 2C: Weekly Progress & Coach Dashboard).
  * Kept deliberately minimal — this app doesn't have a full workout-planning
@@ -232,6 +255,12 @@ export interface WorkoutEntry extends BaseDocument {
   date: ISODateString;
   name: string;
   durationMin: number;
+  activityType?: WorkoutActivityType;
+  intensity?: WorkoutIntensity;
+  distanceKm?: number | null;
+  speedKph?: number | null;
+  caloriesBurnedKcal?: number | null;
+  calorieEstimate?: WorkoutCalorieEstimateAudit;
   note: string | null;
 }
 
@@ -243,6 +272,9 @@ export interface SleepEntry extends BaseDocument {
   userId: string;
   date: ISODateString;
   hoursSlept: number;
+  sleepAt?: string;
+  wakeAt?: string;
+  quality?: "poor" | "okay" | "good" | null;
   note: string | null;
 }
 

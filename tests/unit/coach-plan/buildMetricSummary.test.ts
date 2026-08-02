@@ -66,6 +66,18 @@ const workout: WorkoutEntry = {
   date: today,
   name: "Logged workout",
   durationMin: 20,
+  caloriesBurnedKcal: 125,
+  calorieEstimate: {
+    method: "met-local",
+    estimatedCaloriesKcal: 125,
+    confirmedCaloriesKcal: 125,
+    met: 5,
+    weightKgUsed: 65,
+    userConfirmed: true,
+    wasEdited: false,
+    assumptions: ["Local estimate"],
+    estimatedAt: baseDocument.createdAt,
+  },
   note: null,
 };
 const sleep: SleepEntry = {
@@ -162,6 +174,12 @@ describe("buildMetricSummary", () => {
     });
     expect(result.sleep.value).toBe(6.5);
     expect(result.workout.value).toBe(20);
+    expect(result.calorieSummary).toMatchObject({
+      caloriesEaten: { value: 500 },
+      workoutCaloriesBurned: { value: 125, status: "estimated" },
+      netCalories: { value: 375 },
+      remainingCalories: { value: 1025 },
+    });
     expect(result.coachScore).toMatchObject({
       value: expect.any(Number),
       status: "ready",

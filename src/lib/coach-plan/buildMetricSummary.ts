@@ -22,6 +22,7 @@ import type {
   WeightEntry,
   WorkoutEntry,
 } from "@/types/firestore";
+import { buildCalorieSummary } from "./buildCalorieSummary";
 
 interface BuildMetricSummaryInput {
   today: string;
@@ -229,6 +230,15 @@ export function buildMetricSummary(
       metricStatus(input.workouts),
       ["repository.workouts", "planner.daily.targets.workoutMin"],
     ),
+    calorieSummary: buildCalorieSummary({
+      today: input.today,
+      caloriesEatenKcal: isUnavailable(input.meals.status)
+        ? null
+        : dailyInput.caloriesConsumed,
+      mealsStatus: input.meals.status,
+      workouts: input.workouts,
+      targetCaloriesKcal: input.targets.calories,
+    }),
     body: {
       weightKg: bodyMetric(
         latestWeight?.weightKg ?? null,

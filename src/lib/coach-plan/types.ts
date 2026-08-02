@@ -169,6 +169,19 @@ export interface MetricTrend {
   sourceIds: string[];
 }
 
+export interface DailyCalorieSummary {
+  status: "ready" | "partial";
+  caloriesEaten: MetricValue;
+  workoutCaloriesBurned: MetricValue;
+  netCalories: MetricValue;
+  remainingCalories: MetricValue;
+  targetCaloriesKcal: number | null;
+  workoutEntryCount: number;
+  unresolvedWorkoutCount: number;
+  formula: "net = eaten - workout; remaining = target - net";
+  sourceIds: string[];
+}
+
 export interface DailyMetricSummary {
   coachScore: MetricValue;
   calories: GoalMetricValue;
@@ -176,6 +189,7 @@ export interface DailyMetricSummary {
   water: GoalMetricValue;
   sleep: GoalMetricValue;
   workout: GoalMetricValue;
+  calorieSummary: DailyCalorieSummary;
   body: {
     weightKg: MetricValue;
     waistCm: MetricValue;
