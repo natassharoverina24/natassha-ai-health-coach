@@ -31,13 +31,13 @@ describe("Things I noticed", () => {
     render(<ThingsINoticedCard insights={[insight]} />);
 
     expect(
-      screen.getByRole("heading", { name: "Things I noticed" }),
+      screen.getByRole("heading", { name: "Yang aku notice" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Evidence: 4 of 7 observed days/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Accept" }));
+    expect(screen.getByText(/Terlihat 4 dari 7 hari/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Terima" }));
     expect(screen.getByText("accepted")).toBeInTheDocument();
     expect(
-      screen.getByText(/does not change your targets or coaching rules/i),
+      screen.getByText(/tidak mengubah target atau aturan coaching/i),
     ).toBeInTheDocument();
   });
 
@@ -45,7 +45,7 @@ describe("Things I noticed", () => {
     render(<ThingsINoticedCard insights={[]} />);
     expect(
       screen.getByText(
-        "No strong pattern yet. Keep logging and I’ll look for repeat patterns.",
+        "Belum ada pola yang cukup kuat. Tetap catat aktivitasmu, nanti aku bantu perhatikan ya 💗",
       ),
     ).toBeInTheDocument();
   });

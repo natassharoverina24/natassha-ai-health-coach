@@ -49,6 +49,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { PlansChangedCard } from "./PlansChangedCard";
 import { ThingsINoticedCard } from "./ThingsINoticedCard";
+import { TodayQuickActionHub } from "./TodayQuickActionHub";
 
 export function TodayDashboard() {
   const { user } = useAuth();
@@ -60,6 +61,7 @@ export function TodayDashboard() {
   const [timelineError, setTimelineError] = useState<string | null>(null);
   const [disruptionSaving, setDisruptionSaving] = useState(false);
   const [disruptionError, setDisruptionError] = useState<string | null>(null);
+  const [briefingOpen, setBriefingOpen] = useState(false);
 
   const addWater = async (amountMl: number) => {
     if (!user || !plan) return;
@@ -75,7 +77,7 @@ export function TodayDashboard() {
       setQuickWaterMl((current) => current + amountMl);
       await refresh();
     } catch {
-      setWaterError("Water could not be logged. Please try again.");
+      setWaterError("Airnya belum berhasil dicatat. Coba lagi ya.");
     } finally {
       setWaterSaving(false);
     }
@@ -97,7 +99,7 @@ export function TodayDashboard() {
       await refresh();
     } catch {
       setTimelineError(
-        "This timeline check-in could not be saved. Please try again.",
+        "Status jadwalnya belum berhasil disimpan. Coba lagi ya.",
       );
     } finally {
       setTimelineSavingId(null);
@@ -118,7 +120,7 @@ export function TodayDashboard() {
       await refresh();
     } catch {
       setDisruptionError(
-        "Today's adjustment could not be saved. Please try again.",
+        "Penyesuaian hari ini belum berhasil disimpan. Coba lagi ya.",
       );
     } finally {
       setDisruptionSaving(false);
@@ -138,7 +140,7 @@ export function TodayDashboard() {
       await refresh();
     } catch {
       setDisruptionError(
-        "Today's adjustment could not be cleared. Please try again.",
+        "Penyesuaiannya belum berhasil dibatalkan. Coba lagi ya.",
       );
     } finally {
       setDisruptionSaving(false);
@@ -154,11 +156,12 @@ export function TodayDashboard() {
       <GlassCard>
         <section aria-labelledby="today-unavailable-heading">
           <h1 id="today-unavailable-heading" className="text-xl font-bold text-ink">
-            Today
+            Hari ini
           </h1>
           <p role="alert" className="mt-2 text-sm text-ink-muted">
-            {error ??
-              "Sign in and complete your profile to prepare today’s plan."}
+            {error
+              ? "Plan hari ini belum bisa dimuat. Coba lagi sebentar ya."
+              : "Masuk dan lengkapi profil dulu supaya plan hari ini bisa disiapkan."}
           </p>
           {user && (
             <Button
@@ -167,7 +170,7 @@ export function TodayDashboard() {
               className="mt-4"
               onClick={() => void refresh()}
             >
-              Try again
+              Coba lagi
             </Button>
           )}
         </section>
@@ -178,23 +181,27 @@ export function TodayDashboard() {
   return (
     <main className="flex min-w-0 flex-col gap-5" aria-labelledby="today-heading">
       <TodayHero plan={plan} refreshing={refreshing} onRefresh={refresh} />
+      <TodayQuickActionHub />
 
       {plan.status === "partial" && (
         <p
           role="status"
           className="rounded-control bg-amber-soft px-4 py-3 text-sm text-ink"
         >
-          Today’s core plan is ready. Optional tools will appear when their
-          structured inputs are available.
+          Plan intinya sudah siap 💗 Bagian lain akan muncul saat datanya tersedia.
         </p>
       )}
       {error && (
         <p role="alert" className="rounded-control bg-petal-soft px-4 py-3 text-sm text-ink">
-          {error} The current plan remains visible.
+          Ada data tambahan yang belum bisa dimuat. Plan yang tersedia tetap bisa kamu lihat.
         </p>
       )}
 
-      <TodayBriefing plan={plan} />
+      <TodayBriefing
+        plan={plan}
+        open={briefingOpen}
+        onToggle={() => setBriefingOpen((current) => !current)}
+      />
       <TodayHighlights plan={plan} />
       <PlansChangedCard
         adjustment={plan.emergencyAdjustment?.value ?? null}
@@ -241,7 +248,7 @@ function TodayHero({
   onRefresh: () => Promise<void>;
 }) {
   return (
-    <GlassCard className="overflow-hidden bg-gradient-to-br from-petal-soft to-teal-soft">
+    <GlassCard className="overflow-hidden bg-gradient-to-br from-petal-soft to-amber-soft/60">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-rose-strong">
@@ -251,14 +258,14 @@ function TodayHero({
             {plan.greeting.value}
           </h1>
           <p className="mt-2 text-sm text-ink-muted">
-            One traceable view of today’s retained coaching plan.
+            Plan hari ini sudah siap 💗
           </p>
         </div>
         <Button
           type="button"
           size="icon"
           variant="ghost"
-          aria-label="Refresh today’s plan"
+          aria-label="Refresh plan hari ini"
           isLoading={refreshing}
           onClick={() => void onRefresh()}
         >
@@ -269,28 +276,54 @@ function TodayHero({
   );
 }
 
-function TodayBriefing({ plan }: { plan: TodayCoachPlan }) {
+function TodayBriefing({
+  plan,
+  open,
+  onToggle,
+}: {
+  plan: TodayCoachPlan;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const insights = plan.briefing.retainedInsights.slice(0, 3);
   return (
     <GlassCard>
       <section aria-labelledby="coach-briefing-heading">
-        <h2 id="coach-briefing-heading" className="text-base font-semibold text-ink">
-          Coach briefing
-        </h2>
-        {plan.briefing.retainedInsights.length === 0 ? (
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="coach-briefing-heading" className="text-base font-semibold text-ink">
+            Ringkasan coach
+          </h2>
+          <button
+            type="button"
+            className="min-h-11 rounded-control px-3 text-sm font-semibold text-rose-strong"
+            aria-expanded={open}
+            aria-controls="coach-briefing-content"
+            onClick={onToggle}
+          >
+            {open ? "Tutup" : "Lihat ringkasan"}
+          </button>
+        </div>
+        {insights.length === 0 ? (
           <p className="mt-2 text-sm text-ink-muted">
-            No retained coaching insight is available today.
+            Belum ada catatan coach tambahan hari ini.
           </p>
-        ) : (
-          <ul className="mt-3 grid gap-2">
-            {plan.briefing.retainedInsights.map((insight) => (
+        ) : open ? (
+          <ul id="coach-briefing-content" className="mt-3 grid gap-2">
+            {insights.map((insight) => (
               <li key={insight.id} className="rounded-control bg-bg-elevated px-3 py-3">
-                <p className="text-sm font-semibold text-ink">{insight.summary}</p>
+                <p className="text-sm font-semibold text-ink">
+                  {friendlyCoachText(insight.summary)}
+                </p>
                 <p className="mt-1 text-xs text-ink-muted">
-                  {insight.recommendedAction}
+                  {friendlyCoachText(insight.recommendedAction)}
                 </p>
               </li>
             ))}
           </ul>
+        ) : (
+          <p className="mt-2 text-sm text-ink-muted">
+            Ada {insights.length} catatan singkat untuk menemani harimu.
+          </p>
         )}
       </section>
     </GlassCard>
@@ -301,22 +334,22 @@ function TodayHighlights({ plan }: { plan: TodayCoachPlan }) {
   return (
     <div className="grid gap-3 md:grid-cols-3">
       <HighlightCard
-        title="Today’s Focus"
+        title="Fokus hari ini"
         item={plan.focus}
         icon={<Target size={17} />}
-        emptyText="No retained focus is available."
+        emptyText="Belum ada fokus tambahan hari ini."
       />
       <HighlightCard
-        title="Biggest Risk"
+        title="Yang perlu dijaga"
         item={plan.biggestRisk}
         icon={<TriangleAlert size={17} />}
-        emptyText="No retained risk is active."
+        emptyText="Belum ada hal khusus yang perlu dijaga."
       />
       <HighlightCard
-        title="Today’s Win"
+        title="Kemenangan hari ini"
         item={plan.todaysWin}
         icon={<Trophy size={17} />}
-        emptyText="No retained win is available yet."
+        emptyText="Langkah kecilmu akan muncul di sini."
       />
     </div>
   );
@@ -341,9 +374,11 @@ function HighlightCard({
       </h2>
       {item ? (
         <>
-          <p className="mt-2 text-sm font-medium text-ink">{item.value.summary}</p>
+          <p className="mt-2 text-sm font-medium text-ink">
+            {friendlyCoachText(item.value.summary)}
+          </p>
           <p className="mt-1 text-xs text-ink-muted">
-            {item.value.recommendedAction}
+            {friendlyCoachText(item.value.recommendedAction)}
           </p>
         </>
       ) : (
@@ -370,21 +405,21 @@ function TodayTimeline({
     <GlassCard>
       <section aria-labelledby="today-timeline-heading">
         <h2 id="today-timeline-heading" className="flex items-center gap-2 text-base font-semibold text-ink">
-          <CalendarClock size={18} className="text-teal" />
-          Timeline
+          <CalendarClock size={18} className="text-rose-strong" />
+          Jadwal hari ini
         </h2>
         <ol className="mt-3 grid gap-3">
           {plan.timeline.map((item) => (
             <li
               key={item.id}
-              className="rounded-control border border-ink/8 bg-teal-soft px-3 py-3"
+              className="rounded-control border border-rose-strong/10 bg-petal-soft/45 px-3 py-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-2">
                   {item.status === "completed" ? (
                     <CheckCircle2
                       size={18}
-                      className="mt-0.5 shrink-0 text-teal"
+                      className="mt-0.5 shrink-0 text-rose-strong"
                       aria-hidden="true"
                     />
                   ) : (
@@ -403,7 +438,7 @@ function TodayTimeline({
                     </p>
                   </div>
                 </div>
-                <time className="shrink-0 text-sm font-semibold text-teal">
+                <time className="shrink-0 text-sm font-semibold text-rose-strong">
                   {item.time}
                 </time>
               </div>
@@ -412,13 +447,13 @@ function TodayTimeline({
                   className="rounded-full bg-bg-elevated px-2 py-1 font-semibold capitalize text-ink"
                   aria-label={`Status: ${item.status}`}
                 >
-                  {item.status}
+                  {timelineStatusLabel(item.status)}
                 </span>
                 <span className="text-ink-muted">{item.statusMessage}</span>
               </div>
               {item.impact.length > 0 && (
                 <p className="mt-2 text-xs text-ink-muted">
-                  Daily impact:{" "}
+                  Dampak harian:{" "}
                   {item.impact
                     .map((impact) =>
                       impact.plannedValue === null
@@ -430,7 +465,7 @@ function TodayTimeline({
               )}
               {item.alternative && (
                 <p className="mt-1 text-xs text-ink-muted">
-                  Alternative: {item.alternative}
+                  Alternatif: {item.alternative}
                 </p>
               )}
               {item.manualCompletionAllowed &&
@@ -443,7 +478,7 @@ function TodayTimeline({
                     isLoading={savingId === item.id}
                     onClick={() => void onComplete(item)}
                   >
-                    Mark complete
+                    Tandai selesai
                   </Button>
                 )}
             </li>
@@ -521,7 +556,7 @@ function TodayMealSummary({
       <section aria-labelledby="today-meals-heading">
         <h2 id="today-meals-heading" className="flex items-center gap-2 text-base font-semibold text-ink">
           <UtensilsCrossed size={18} className="text-rose-strong" />
-          Nutrition guidance
+          Panduan makan
         </h2>
         <ul className="mt-3 grid gap-3">
           {Object.values(plan.meals).map((meal) => {
@@ -541,7 +576,7 @@ function TodayMealSummary({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold capitalize text-rose-strong">
-                    {meal.slot} · {meal.scheduledTime}
+                    {mealSlotLabel(meal.slot)} · {meal.scheduledTime}
                   </p>
                   <p className="text-sm font-semibold text-ink">
                     {displayedRecommendation.name}
@@ -565,7 +600,7 @@ function TodayMealSummary({
               </ul>
               {meal.confirmedConsumption && (
                 <p className="mt-2 text-xs text-ink">
-                  Confirmed logs: {meal.confirmedConsumption.entryCount} ·{" "}
+                  Log terkonfirmasi: {meal.confirmedConsumption.entryCount} ·{" "}
                   {meal.confirmedConsumption.nutrition.caloriesKcal} kcal ·{" "}
                   {meal.confirmedConsumption.nutrition.proteinG} g protein
                 </p>
@@ -583,7 +618,7 @@ function TodayMealSummary({
               ) : (
                 <>
                   <p className="mt-2 text-xs font-medium text-ink">
-                    Remaining after {meal.slot}: {meal.remainingAfterMeal.caloriesKcal} kcal ·{" "}
+                    Sisa setelah {mealSlotLabel(meal.slot)}: {meal.remainingAfterMeal.caloriesKcal} kcal ·{" "}
                     {meal.remainingAfterMeal.proteinG} g protein
                   </p>
                   {meal.nextMealImpact && (
@@ -662,7 +697,7 @@ function TodayMealSummary({
               {meal.officeLunchAdjustment && (
                 <div className="mt-2 rounded-control bg-sky-soft px-2 py-2">
                   <p className="text-xs font-semibold text-ink">
-                    Office lunch adjustment
+                    Penyesuaian makan siang kantor
                   </p>
                   {meal.officeLunchAdjustment.plan.applicable ? (
                     <ul className="mt-1 grid gap-1 text-xs text-ink-muted">
@@ -699,27 +734,27 @@ function TodayMetrics({
 }) {
   const metrics = plan.metrics;
   const primary: Array<[string, MetricValue | GoalMetricValue]> = [
-    ["Coach Score", metrics.coachScore],
-    ["Calories", metrics.calories],
+    ["Skor coach", metrics.coachScore],
+    ["Kalori", metrics.calories],
     ["Protein", metrics.protein],
-    ["Water", metrics.water],
-    ["Sleep", metrics.sleep],
+    ["Air", metrics.water],
+    ["Tidur", metrics.sleep],
     ["Workout", metrics.workout],
   ];
   const secondary: Array<[string, MetricValue]> = [
-    ["Weight", metrics.body.weightKg],
-    ["Waist", metrics.body.waistCm],
+    ["Berat", metrics.body.weightKg],
+    ["Lingkar pinggang", metrics.body.waistCm],
     ["BMR", metrics.body.bmrKcal],
     ["TDEE", metrics.body.tdeeKcal],
-    ["Deficit", metrics.body.deficitKcal],
+    ["Defisit", metrics.body.deficitKcal],
   ];
   return (
     <GlassCard>
       <section aria-labelledby="today-metrics-heading">
         <h2 id="today-metrics-heading" className="text-base font-semibold text-ink">
-          Health metrics
+          Ringkasan kesehatan
         </h2>
-        <p className="mt-1 text-xs text-ink-muted">Primary daily progress</p>
+        <p className="mt-1 text-xs text-ink-muted">Progress utama hari ini</p>
         <dl className="mt-3 grid grid-cols-2 divide-x divide-y divide-ink/8 overflow-hidden rounded-control border border-ink/8 sm:grid-cols-3">
           {primary.map(([label, metric]) => (
             <div key={label} className="min-w-0 px-3 py-3">
@@ -743,7 +778,7 @@ function TodayMetrics({
         </dl>
         <div className="mt-4 border-t border-ink/8 pt-4">
           <p className="text-xs font-semibold text-ink">
-            Body &amp; energy
+            Tubuh &amp; energi
           </p>
           <dl className="mt-2 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-5">
             {secondary.map(([label, metric]) => (
@@ -767,7 +802,7 @@ function TodayMetrics({
           )}
         </div>
         <p role="status" className="mt-3 text-xs text-ink-muted">
-          Water added with quick log this session: {quickWaterMl} ml.
+          Air yang ditambahkan sesi ini: {quickWaterMl} ml.
         </p>
       </section>
     </GlassCard>
@@ -775,7 +810,7 @@ function TodayMetrics({
 }
 
 function formatMetricValue(metric: MetricValue): string {
-  if (metric.value === null) return "Not available";
+  if (metric.value === null) return "Belum tersedia";
   return `${metric.value.toLocaleString("id-ID")} ${metric.unit}`;
 }
 
@@ -783,7 +818,7 @@ function MetricStatusLabel({ metric }: { metric: MetricValue }) {
   if (metric.status === "ready") return null;
   return (
     <span className="rounded-full bg-bg-elevated px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
-      {metric.status}
+      {metricStatusLabel(metric.status)}
     </span>
   );
 }
@@ -794,11 +829,13 @@ function TodayMotivation({ plan }: { plan: TodayCoachPlan }) {
       <section aria-labelledby="today-motivation-heading">
         <h2 id="today-motivation-heading" className="flex items-center gap-2 text-sm font-semibold text-ink">
           <Sparkles size={16} className="text-amber" />
-          Motivation
+          Semangat hari ini
         </h2>
         <p className="mt-2 text-sm text-ink-muted">
-          {plan.briefing.encouragement?.value ??
-            "No retained motivation is available today."}
+          {friendlyCoachText(
+            plan.briefing.encouragement?.value ??
+              "Pelan-pelan aja, satu langkah kecil tetap berarti 💗",
+          )}
         </p>
       </section>
     </GlassCard>
@@ -820,10 +857,10 @@ function TodayQuickLog({
     <GlassCard>
       <section aria-labelledby="quick-log-heading">
         <h2 id="quick-log-heading" className="text-base font-semibold text-ink">
-          Quick log
+          Catat cepat
         </h2>
         <p className="mt-1 text-sm text-ink-muted">
-          Add water without leaving Today.
+          Tambah air tanpa pindah halaman.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {[250, 500].map((amount) => (
@@ -835,12 +872,12 @@ function TodayQuickLog({
               disabled={saving}
               onClick={() => void onAddWater(amount)}
             >
-              Add {amount} ml water
+              Tambah {amount} ml air
             </Button>
           ))}
         </div>
         <p role="status" className="mt-3 text-xs text-ink-muted">
-          Logged from quick actions: {loggedWaterMl} ml.
+          Sudah dicatat dari aksi cepat: {loggedWaterMl} ml.
         </p>
         {error && (
           <p role="alert" className="mt-2 text-xs text-danger">
@@ -850,6 +887,43 @@ function TodayQuickLog({
       </section>
     </GlassCard>
   );
+}
+
+function friendlyCoachText(value: string): string {
+  if (/infinity\s+days?\s+since\s+the\s+last\s+workout/i.test(value)) {
+    return "Belum ada workout yang tercatat.";
+  }
+  if (/coach score has declined/i.test(value)) {
+    return "Beberapa hari ini ritmenya agak turun. Kita mulai dari yang paling gampang dulu ya 💗";
+  }
+  return value.replace(/\bInfinity\b/gi, "belum ada data");
+}
+
+function mealSlotLabel(slot: string): string {
+  return {
+    breakfast: "sarapan",
+    lunch: "makan siang",
+    snack: "snack",
+    dinner: "makan malam",
+  }[slot] ?? slot;
+}
+
+function timelineStatusLabel(status: string): string {
+  return {
+    upcoming: "akan datang",
+    completed: "selesai",
+    missed: "terlewat",
+    adjusted: "disesuaikan",
+  }[status] ?? status;
+}
+
+function metricStatusLabel(status: MetricValue["status"]): string {
+  return {
+    ready: "siap",
+    empty: "kosong",
+    unavailable: "belum tersedia",
+    estimated: "estimasi",
+  }[status];
 }
 
 function TodayLoadingState() {

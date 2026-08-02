@@ -25,18 +25,17 @@ export function ThingsINoticedCard({
 
   return (
     <GlassCard>
-      <section aria-labelledby="things-noticed-heading">
+      <section id="things-i-noticed" className="scroll-mt-24" aria-labelledby="things-noticed-heading">
         <h2
           id="things-noticed-heading"
           className="flex items-center gap-2 text-base font-semibold text-ink"
         >
-          <Eye size={17} className="text-teal" />
-          Things I noticed
+          <Eye size={17} className="text-rose-strong" />
+          Yang aku notice
         </h2>
         {insights.length === 0 ? (
           <p className="mt-2 text-sm text-ink-muted">
-            No strong pattern yet. Keep logging and I’ll look for repeat
-            patterns.
+            Belum ada pola yang cukup kuat. Tetap catat aktivitasmu, nanti aku bantu perhatikan ya 💗
           </p>
         ) : (
           <ul className="mt-3 grid gap-3">
@@ -52,7 +51,7 @@ export function ThingsINoticedCard({
                       {insight.title}
                     </p>
                     {status !== "suggested" && (
-                      <span className="rounded-full bg-teal-soft px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
+                      <span className="rounded-full bg-petal-soft px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
                         {status}
                       </span>
                     )}
@@ -61,12 +60,12 @@ export function ThingsINoticedCard({
                     {insight.explanation}
                   </p>
                   <p className="mt-2 text-xs font-medium text-ink">
-                    Evidence: {insight.evidence.count} of{" "}
-                    {insight.evidence.observedDays} observed days in a{" "}
-                    {insight.evidence.windowDays}-day window.
+                    Terlihat {insight.evidence.count} dari{" "}
+                    {insight.evidence.observedDays} hari yang tercatat dalam{" "}
+                    {insight.evidence.windowDays} hari.
                   </p>
                   <p className="mt-1 text-xs text-ink-muted">
-                    Small next step: {insight.suggestion.text}
+                    Langkah kecil berikutnya: {insight.suggestion.text}
                   </p>
                   {status === "suggested" && (
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -76,7 +75,7 @@ export function ThingsINoticedCard({
                         variant="secondary"
                         onClick={() => setStatus(insight.id, "accepted")}
                       >
-                        Accept
+                        Terima
                       </Button>
                       <Button
                         type="button"
@@ -84,7 +83,7 @@ export function ThingsINoticedCard({
                         variant="ghost"
                         onClick={() => setStatus(insight.id, "dismissed")}
                       >
-                        Dismiss
+                        Abaikan
                       </Button>
                     </div>
                   )}
@@ -94,8 +93,7 @@ export function ThingsINoticedCard({
           </ul>
         )}
         <p className="mt-3 text-xs text-ink-muted">
-          Accepting or dismissing here does not change your targets or coaching
-          rules.
+          Pilihanmu di sini tidak mengubah target atau aturan coaching secara diam-diam.
         </p>
       </section>
     </GlassCard>
