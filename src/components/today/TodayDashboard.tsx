@@ -812,64 +812,83 @@ function TodayMetrics({
 }
 
 function TodayCalorieSummary({ summary }: { summary: DailyCalorieSummary }) {
+  const noMealData = summary.caloriesEaten.status === "empty";
+  const helper =
+    summary.targetCaloriesKcal === null
+      ? "Target kalori belum diset."
+      : summary.status === "partial"
+        ? "Beberapa data belum lengkap, tapi yang sudah ada tetap aku hitung ya."
+        : null;
   const items = [
     {
       label: "Kalori masuk",
       metric: summary.caloriesEaten,
-      empty: "Belum ada makanan tercatat",
+      empty: "—",
     },
     {
       label: "Kalori olahraga",
       metric: summary.workoutCaloriesBurned,
-      empty: summary.workoutEntryCount === 0
-        ? "Belum ada workout tercatat"
-        : "Estimasi workout belum tersedia",
+      empty: summary.workoutEntryCount === 0 ? "0 kcal" : "—",
     },
     {
       label: "Net kalori",
       metric: summary.netCalories,
-      empty: "Belum bisa dihitung",
+      empty: "—",
     },
     {
       label: "Sisa kalori",
       metric: summary.remainingCalories,
-      empty: summary.targetCaloriesKcal === null
-        ? "Target belum tersedia"
-        : "Belum bisa dihitung",
+      empty: "—",
     },
   ];
 
   return (
     <GlassCard padding="sm">
       <section aria-labelledby="calorie-summary-heading">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <h2 id="calorie-summary-heading" className="text-sm font-semibold text-ink">
-              Ringkasan kalori hari ini
-            </h2>
+        <div>
+          <h2 id="calorie-summary-heading" className="text-sm font-semibold text-ink">
+            Ringkasan kalori hari ini
+          </h2>
+          {!noMealData && (
             <p className="mt-1 text-xs text-ink-muted">
               Net = kalori masuk - estimasi kalori olahraga.
             </p>
-          </div>
-          {summary.status === "partial" && (
-            <span className="rounded-full bg-petal-soft px-2 py-1 text-[10px] font-semibold text-rose-strong">
-              Data sebagian
-            </span>
           )}
         </div>
-        <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {items.map(({ label, metric, empty }) => (
-            <div key={label} className="rounded-control border border-rose/15 bg-petal-soft/55 px-3 py-3">
-              <dt className="text-xs text-ink-muted">{label}</dt>
-              <dd className="mt-1 text-sm font-semibold text-ink">
-                {formatCalorieSummaryValue(metric, empty)}
-              </dd>
-              {metric.status === "estimated" && (
-                <p className="mt-1 text-[10px] font-medium text-rose-strong">Estimasi terkonfirmasi</p>
-              )}
-            </div>
-          ))}
-        </dl>
+        {noMealData ? (
+          <div className="mt-3 rounded-control border border-rose/15 bg-petal-soft/55 p-4">
+            <p className="text-sm leading-relaxed text-ink-muted">
+              Belum ada makanan yang dicatat. Yuk input makan pertamamu 💗
+            </p>
+            <Link
+              href="/meal"
+              className="mt-3 inline-flex min-h-11 items-center justify-center rounded-control bg-rose-strong px-4 py-2 text-sm font-semibold text-white"
+            >
+              Input makan
+            </Link>
+          </div>
+        ) : (
+          <>
+            <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {items.map(({ label, metric, empty }) => (
+                <div key={label} className="rounded-control border border-rose/15 bg-petal-soft/55 px-3 py-3">
+                  <dt className="text-xs text-ink-muted">{label}</dt>
+                  <dd className="mt-1 text-sm font-semibold text-ink">
+                    {formatCalorieSummaryValue(metric, empty)}
+                  </dd>
+                  {metric.status === "estimated" && (
+                    <p className="mt-1 text-[10px] font-medium text-rose-strong">Estimasi terkonfirmasi</p>
+                  )}
+                </div>
+              ))}
+            </dl>
+            {helper && (
+              <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+                {helper}
+              </p>
+            )}
+          </>
+        )}
       </section>
     </GlassCard>
   );
