@@ -41,14 +41,15 @@ describe("Shopping page", () => {
   it("loads an automatic list from the deterministic weekly meal plan", async () => {
     render(<ShoppingPage />);
 
-    expect(screen.getByRole("heading", { name: "Shopping List" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Daftar Belanja" })).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Memuat shopping list" })).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Protein" })).toBeInTheDocument(),
     );
     expect(buildCoachDecision).toHaveBeenCalledWith("user-1");
     expect(buildPlannerUserContext).toHaveBeenCalledWith("user-1");
-    expect(screen.getByText(/dibuat otomatis dari meal plan mingguanmu/i)).toBeInTheDocument();
+    expect(screen.getByText(/daftar belanja dibuat dari meal plan mingguanmu/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Peluang batch cooking" })).toBeInTheDocument();
   });
 
   it("shows the empty weekly-plan state when no user plan is available", async () => {
@@ -57,7 +58,7 @@ describe("Shopping page", () => {
 
     expect(
       await screen.findByText(
-        "Belum ada meal plan mingguan, jadi shopping list belum bisa dibuat 💗",
+        "Belum ada meal plan mingguan, jadi daftar belanja belum bisa dibuat.",
       ),
     ).toBeInTheDocument();
     expect(buildCoachDecision).not.toHaveBeenCalled();

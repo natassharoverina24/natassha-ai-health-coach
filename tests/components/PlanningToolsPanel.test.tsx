@@ -10,6 +10,7 @@ import {
   type PlannerUserContext,
 } from "@/lib/planner";
 import { DEFAULT_GOALS } from "@/lib/utils/constants";
+import { saveMealReplacementSelection } from "@/lib/shopping-list";
 
 const context: PlannerUserContext = {
   today: "2026-07-25",
@@ -58,6 +59,8 @@ function renderPanel(
 }
 
 describe("PlanningToolsPanel", () => {
+  beforeEach(() => window.localStorage.clear());
+
   it("renders all completed planning integrations and their empty states", () => {
     renderPanel();
 
@@ -72,8 +75,9 @@ describe("PlanningToolsPanel", () => {
     }
 
     expect(
-      screen.getByText(/shopping data unavailable/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/daftar belanja dibuat dari meal plan mingguanmu/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Peluang batch cooking" })).toBeInTheDocument();
     expect(
       screen.getByText(/no retained adaptive adjustment applies today/i),
     ).toBeInTheDocument();
@@ -192,13 +196,12 @@ describe("PlanningToolsPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not fabricate a shopping list or medical guidance", () => {
+  it("recovers a deterministic shopping list from all seven selected days", () => {
     renderPanel();
 
-    expect(screen.queryByText(/shopping item:/i)).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/shopping-list and batch-cooking sections are disabled/i),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Protein" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Peluang batch cooking" })).toBeInTheDocument();
+    expect(screen.queryByText(/shopping data unavailable/i)).not.toBeInTheDocument();
     const week = screen.getByRole("list", { name: "Seven-day meal plan" });
     expect(week.children).toHaveLength(7);
     expect(within(week).getAllByText(/^breakfast$/i)).toHaveLength(7);
@@ -208,5 +211,31 @@ describe("PlanningToolsPanel", () => {
     expect(document.body).not.toHaveTextContent(
       /thyroid diet|supplement recommendation|medication advice/i,
     );
+  });
+
+  it("keeps known shopping and batch items when one selected replacement needs a manual check", () => {
+    saveMealReplacementSelection({
+      userId: "user-1",
+      date: context.today,
+      slot: "breakfast",
+      templateId: "custom-breakfast",
+      label: "Sarapan custom",
+      selectedAt: "2026-07-25T08:05:00.000Z",
+    });
+
+    render(
+      <PlanningToolsPanel
+        userId="user-1"
+        decision={baseDecision}
+        context={context}
+        dailyPlan={generateDailyPlan(baseDecision, context)}
+        mealPlan={generateMealPlan(baseDecision, context)}
+      />,
+    );
+
+    expect(screen.getByText("Sarapan custom")).toBeInTheDocument();
+    expect(screen.getByText("Beberapa item masih perlu dicek manual.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Protein" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Peluang batch cooking" })).toBeInTheDocument();
   });
 });

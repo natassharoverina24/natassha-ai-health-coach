@@ -6,9 +6,10 @@ import { ShoppingCart } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { cn } from "@/lib/utils/cn";
-import type {
-  ShoppingListCategory,
-  ShoppingListResult,
+import {
+  buildBatchCookingOpportunities,
+  type ShoppingListCategory,
+  type ShoppingListResult,
 } from "@/lib/shopping-list";
 
 const CATEGORY_LABELS: Readonly<Record<ShoppingListCategory, string>> = {
@@ -37,8 +38,8 @@ export function AutoShoppingList({ result }: { result: ShoppingListResult }) {
       <GlassCard>
         <EmptyState
           icon={<ShoppingCart size={28} />}
-          title="Shopping list belum tersedia"
-          description="Belum ada meal plan mingguan, jadi shopping list belum bisa dibuat 💗"
+          title="Daftar belanja belum tersedia"
+          description="Belum ada meal plan mingguan, jadi daftar belanja belum bisa dibuat."
         />
       </GlassCard>
     );
@@ -48,6 +49,7 @@ export function AutoShoppingList({ result }: { result: ShoppingListResult }) {
     category,
     items: result.items.filter((item) => item.category === category),
   })).filter((group) => group.items.length > 0);
+  const batchOpportunities = buildBatchCookingOpportunities(result.items);
 
   const toggle = (id: string) => {
     setCheckedIds((current) => {
@@ -62,14 +64,14 @@ export function AutoShoppingList({ result }: { result: ShoppingListResult }) {
     <div className="flex flex-col gap-4">
       <GlassCard className="bg-petal-soft/60">
         <p className="text-sm font-semibold text-ink">
-          Daftar ini dibuat otomatis dari meal plan mingguanmu 💗
+          Daftar belanja dibuat dari meal plan mingguanmu 💗
         </p>
         <p className="mt-1 text-xs text-ink-muted">
           Beberapa jumlah masih estimasi ya, nanti bisa kamu sesuaikan pas belanja.
         </p>
         {result.status === "partial" && (
           <p role="status" className="mt-2 text-xs font-medium text-rose-strong">
-            Ada item yang perlu dicek manual karena datanya belum lengkap.
+            Beberapa item masih perlu dicek manual.
           </p>
         )}
       </GlassCard>
@@ -125,6 +127,29 @@ export function AutoShoppingList({ result }: { result: ShoppingListResult }) {
           </ul>
         </GlassCard>
       ))}
+
+      {batchOpportunities.length > 0 && (
+        <GlassCard>
+          <section aria-labelledby="batch-cooking-heading">
+            <h2 id="batch-cooking-heading" className="text-sm font-semibold text-rose-strong">
+              Peluang batch cooking
+            </h2>
+            <p className="mt-1 text-xs text-ink-muted">
+              Bahan ini muncul beberapa kali, jadi bisa kamu siapkan sekaligus kalau praktis.
+            </p>
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+              {batchOpportunities.map((item) => (
+                <li key={`${item.id}:${item.unit}`} className="rounded-control bg-petal-soft/60 px-3 py-2">
+                  <p className="text-sm font-semibold text-ink">{item.name}</p>
+                  <p className="text-xs text-ink-muted">
+                    ~{item.estimatedQuantity} {item.unit} · dipakai di {item.occurrenceCount} menu
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </GlassCard>
+      )}
     </div>
   );
 }

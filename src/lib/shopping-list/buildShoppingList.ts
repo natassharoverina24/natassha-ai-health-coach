@@ -6,6 +6,7 @@ import {
   type BuildShoppingListInput,
   type SelectedMealReplacement,
   type ShoppingListItem,
+  type ShoppingBatchOpportunity,
   type ShoppingListProvenance,
   type ShoppingListResult,
   type ShoppingListSource,
@@ -122,6 +123,35 @@ export function estimateShoppingQuantity(): {
   unit: "porsi";
 } {
   return { quantity: 1, unit: "porsi" };
+}
+
+export function buildBatchCookingOpportunities(
+  items: readonly ShoppingListItem[],
+): ShoppingBatchOpportunity[] {
+  return items.flatMap((item) => {
+    if (
+      item.estimatedQuantity === null ||
+      item.unit === null ||
+      item.sourceMeals.length < 2 ||
+      (item.category !== "protein" &&
+        item.category !== "carbohydrate" &&
+        item.category !== "pantry-basic")
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        estimatedQuantity: item.estimatedQuantity,
+        unit: item.unit,
+        occurrenceCount: item.sourceMeals.length,
+        sourceMeals: item.sourceMeals.map((source) => ({ ...source })),
+      },
+    ];
+  });
 }
 
 export function buildShoppingListFromMealPlan({
