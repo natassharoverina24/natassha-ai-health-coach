@@ -56,10 +56,10 @@ describe("PlannerWorkspace", () => {
 
     const week = screen.getByRole("list", { name: "Seven-day meal plan" });
     expect(week.children).toHaveLength(7);
-    expect(within(week).getAllByText(/^breakfast$/i)).toHaveLength(7);
-    expect(within(week).getAllByText(/^lunch$/i)).toHaveLength(7);
+    expect(within(week).getAllByText(/^sarapan$/i)).toHaveLength(7);
+    expect(within(week).getAllByText(/^makan siang$/i)).toHaveLength(7);
     expect(within(week).getAllByText(/^snack$/i)).toHaveLength(7);
-    expect(within(week).getAllByText(/^dinner$/i)).toHaveLength(7);
+    expect(within(week).getAllByText(/^makan malam$/i)).toHaveLength(7);
     expect(
       screen.getAllByText(/daftar belanja dibuat dari meal plan mingguanmu/i).length,
     ).toBeGreaterThan(0);

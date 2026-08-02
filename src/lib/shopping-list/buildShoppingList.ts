@@ -1,4 +1,7 @@
-import { getTemplatePracticalFoods } from "@/lib/meal-substitutions";
+import {
+  getTemplatePracticalFoods,
+  PRACTICAL_FOOD_CATALOGUE,
+} from "@/lib/meal-substitutions";
 import type { MealSlot } from "@/lib/planner";
 
 import {
@@ -176,12 +179,38 @@ export function buildShoppingListFromMealPlan({
         mealName,
         selectedReplacement: Boolean(replacement),
       };
-      const foods = getTemplatePracticalFoods(templateId);
+      const mappedReplacementFoods = replacement?.ingredientIds?.flatMap(
+        (ingredientId) => {
+          const item = PRACTICAL_FOOD_CATALOGUE.find(
+            (candidate) => candidate.id === ingredientId,
+          );
+          return item ? [item] : [];
+        },
+      );
+      const unknownReplacementIngredients = replacement?.ingredientIds?.filter(
+        (ingredientId) =>
+          !PRACTICAL_FOOD_CATALOGUE.some(
+            (candidate) => candidate.id === ingredientId,
+          ),
+      ) ?? [];
+      const foods = mappedReplacementFoods?.length
+        ? mappedReplacementFoods
+        : getTemplatePracticalFoods(templateId);
 
       if (foods.length === 0) {
         hasUnknown = true;
         candidates.push(manualItem(replacement, source));
         continue;
+      }
+
+      for (const ingredientId of unknownReplacementIngredients) {
+        hasUnknown = true;
+        candidates.push(
+          manualItem(
+            { ...replacement!, label: ingredientId },
+            { ...source, mealName: ingredientId },
+          ),
+        );
       }
 
       const estimate = estimateShoppingQuantity();

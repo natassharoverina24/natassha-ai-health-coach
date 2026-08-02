@@ -5,7 +5,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { OfficeLunchOptimizerFlow } from "@/components/dashboard/OfficeLunchOptimizerFlow";
-import { AutoShoppingList } from "@/components/shopping";
+import { WeeklyMealPlanExperience } from "@/components/dashboard/WeeklyMealPlanExperience";
 import {
   calculateEnergy,
   type ActivityLevel,
@@ -26,10 +26,6 @@ import {
   type PlannerUserContext,
   type WeeklyMealPrepResult,
 } from "@/lib/planner";
-import {
-  buildShoppingListFromMealPlan,
-  readMealReplacementSelections,
-} from "@/lib/shopping-list";
 
 interface PlanningToolsPanelProps {
   userId?: string | null;
@@ -496,19 +492,12 @@ function WeeklyResultView({
       (error) => error.code === "missing-template-ingredients",
     );
     if (missingMappings.length > 0) {
-      const shoppingResult = buildShoppingListFromMealPlan({
-        days: result.days ?? [],
-        selectedReplacements: userId
-          ? readMealReplacementSelections(userId)
-          : [],
-      });
       return (
         <div className="flex flex-col gap-3">
           <StatusMessage tone="neutral">
             Daftar belanja dibuat dari meal plan mingguanmu 💗
           </StatusMessage>
-          {result.days && <WeeklyDays days={result.days} />}
-          <AutoShoppingList result={shoppingResult} />
+          {result.days && <WeeklyMealPlanExperience days={result.days} userId={userId} />}
         </div>
       );
     }
@@ -528,52 +517,8 @@ function WeeklyResultView({
         {result.days.length} days · {result.shoppingList.length} shopping items ·{" "}
         {result.batchCookingOpportunities.length} batch opportunities
       </p>
-      <WeeklyDays days={result.days} />
+      <WeeklyMealPlanExperience days={result.days} userId={userId} />
     </div>
-  );
-}
-
-function WeeklyDays({
-  days,
-}: {
-  days: NonNullable<
-    Extract<WeeklyMealPrepResult, { status: "invalid-input" }>["days"]
-  >;
-}) {
-  const slots: MealSlot[] = ["breakfast", "lunch", "snack", "dinner"];
-  return (
-    <ol aria-label="Seven-day meal plan" className="grid gap-3">
-      {days.map((day) => (
-        <li key={day.date} className="rounded-control border border-ink/8 p-3">
-          <h4 className="text-sm font-semibold text-ink">{day.date}</h4>
-          <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-            {slots.map((slot) => {
-              const recommendation = day.mealPlan[slot];
-              return (
-                <li key={slot} className="min-w-0 rounded-control bg-teal-soft px-3 py-2">
-                  <p className="text-xs font-semibold uppercase text-teal">
-                    {slot}
-                  </p>
-                  <p className="truncate text-sm font-semibold text-ink">
-                    {recommendation.template.name}
-                  </p>
-                  <p className="text-xs text-ink-muted">
-                    {recommendation.template.serving}
-                  </p>
-                  <p className="text-xs text-ink-muted">
-                    {recommendation.template.calories} kcal ·{" "}
-                    {recommendation.template.proteinG} g protein
-                  </p>
-                  <p className="mt-1 text-xs text-ink-muted">
-                    {recommendation.reason}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
-        </li>
-      ))}
-    </ol>
   );
 }
 

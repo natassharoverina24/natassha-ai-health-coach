@@ -204,16 +204,16 @@ describe("PlanningToolsPanel", () => {
     expect(screen.queryByText(/shopping data unavailable/i)).not.toBeInTheDocument();
     const week = screen.getByRole("list", { name: "Seven-day meal plan" });
     expect(week.children).toHaveLength(7);
-    expect(within(week).getAllByText(/^breakfast$/i)).toHaveLength(7);
-    expect(within(week).getAllByText(/^lunch$/i)).toHaveLength(7);
+    expect(within(week).getAllByText(/^sarapan$/i)).toHaveLength(7);
+    expect(within(week).getAllByText(/^makan siang$/i)).toHaveLength(7);
     expect(within(week).getAllByText(/^snack$/i)).toHaveLength(7);
-    expect(within(week).getAllByText(/^dinner$/i)).toHaveLength(7);
+    expect(within(week).getAllByText(/^makan malam$/i)).toHaveLength(7);
     expect(document.body).not.toHaveTextContent(
       /thyroid diet|supplement recommendation|medication advice/i,
     );
   });
 
-  it("keeps known shopping and batch items when one selected replacement needs a manual check", () => {
+  it("keeps known shopping and batch items when one selected replacement needs a manual check", async () => {
     saveMealReplacementSelection({
       userId: "user-1",
       date: context.today,
@@ -233,7 +233,7 @@ describe("PlanningToolsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Sarapan custom")).toBeInTheDocument();
+    expect((await screen.findAllByText("Sarapan custom")).length).toBeGreaterThan(0);
     expect(screen.getByText("Beberapa item masih perlu dicek manual.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Protein" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Peluang batch cooking" })).toBeInTheDocument();

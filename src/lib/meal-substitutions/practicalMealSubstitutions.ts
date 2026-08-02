@@ -131,6 +131,13 @@ const TEMPLATE_ROLE_SEEDS: Readonly<Record<string, readonly [PracticalFoodRole, 
   "tempe-chips": [["protein", "tempe"]],
   "fruit-yogurt": [["fruit-snack", "fruit"], ["protein", "plain-yogurt"]],
   "edamame-snack": [["protein", "edamame"]],
+  "nasi-telur-sayur": [["protein", "egg"], ["carb", "white-rice"], ["vegetable-fiber", "mixed-vegetables"]],
+  "ayam-kecap-nasi-sayur": [["protein", "chicken"], ["carb", "white-rice"], ["vegetable-fiber", "mixed-vegetables"]],
+  "ikan-bakar-nasi-lalapan": [["protein", "fish"], ["carb", "white-rice"], ["vegetable-fiber", "lalapan"]],
+  "tempe-tahu-capcay-nasi": [["protein", "tempe"], ["protein", "tofu"], ["carb", "white-rice"], ["vegetable-fiber", "capcay"]],
+  "roti-telur-pisang": [["protein", "egg"], ["carb", "whole-wheat-bread"], ["fruit-snack", "banana"]],
+  "ubi-telur": [["protein", "egg"], ["carb", "sweet-potato"]],
+  "pepaya-kacang": [["fruit-snack", "papaya"], ["fruit-snack", "peanuts"]],
 };
 
 const OPTIONAL_TEMPLATE_IDS = new Set(["fruit-yogurt", "edamame-snack"]);

@@ -53,6 +53,10 @@ export interface SelectedMealReplacement {
   templateId: string;
   label: string;
   selectedAt: string;
+  ingredientIds?: string[];
+  provenance?: "local-catalog" | "ai-assisted" | "user-history";
+  provider?: "gemini" | "groq" | "openrouter";
+  model?: string;
 }
 
 export interface BuildShoppingListInput {
