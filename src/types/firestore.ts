@@ -271,14 +271,20 @@ export interface MotivationEntry extends BaseDocument {
 // -----------------------------------------------------------------------------
 
 export type SupplementFrequency = "daily" | "weekdays" | "custom";
+export type SupplementProvenance = "user_confirmed" | "local_rule" | "manual";
+export type SupplementStatus = "planned" | "taken" | "skipped" | "remind-later";
 
 export interface SupplementDefinition extends BaseDocument {
   userId: string;
   name: string;
-  dosage: string;
+  dosage: string | null;
   frequency: SupplementFrequency;
   timesOfDay: string[]; // ["07:00", "19:30"]
   active: boolean;
+  note?: string | null;
+  provenance?: SupplementProvenance;
+  userConfirmed?: boolean;
+  daysOfWeek?: number[];
 }
 
 export interface SupplementLog extends BaseDocument {
@@ -287,6 +293,8 @@ export interface SupplementLog extends BaseDocument {
   date: ISODateString;
   taken: boolean;
   takenAt: ISODateString | null;
+  status?: SupplementStatus;
+  note?: string | null;
 }
 
 // -----------------------------------------------------------------------------

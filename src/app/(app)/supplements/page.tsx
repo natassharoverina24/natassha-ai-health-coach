@@ -1,153 +1,252 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { CheckCircle2, Circle, Pill, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 
-import { useAuth } from "@/contexts/AuthContext";
-import { useFirestoreCollection } from "@/hooks";
-import { supplementsRepository, supplementLogsRepository } from "@/lib/db/supplements.repository";
+import { TodaySupplementPlan } from "@/components/supplements";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
+import { GlassCard } from "@/components/ui/GlassCard";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFirestoreCollection } from "@/hooks";
+import {
+  supplementsRepository,
+  supplementLogsRepository,
+} from "@/lib/db/supplements.repository";
+import {
+  buildTodaySupplementPlan,
+  getSupplementReminderCopy,
+  type SupplementPlanItem,
+  type SupplementStatus,
+} from "@/lib/supplements";
 import { todayISODate } from "@/lib/utils/format";
 import type { SupplementDefinition, SupplementLog } from "@/types/firestore";
 
 export default function SupplementsPage() {
   const { user } = useAuth();
-  const uid = user?.uid ?? null;
+  const userId = user?.uid ?? null;
   const today = useMemo(() => todayISODate(), []);
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState("");
-  const [dosage, setDosage] = useState("");
+  const [doseText, setDoseText] = useState("");
+  const [timeOfDay, setTimeOfDay] = useState("");
+  const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [friendlyError, setFriendlyError] = useState<string | null>(null);
+  const [optimisticStatuses, setOptimisticStatuses] = useState<
+    Record<string, SupplementStatus>
+  >({});
+  const closeModal = useCallback(() => setModalOpen(false), []);
 
-  const { data: supplements, loading } = useFirestoreCollection<SupplementDefinition>(
-    uid ? (onData, onError) => supplementsRepository.subscribeActiveForUser(uid, onData, onError) : null,
-    [uid],
-  );
-
-  const { data: logs } = useFirestoreCollection<SupplementLog>(
-    uid
-      ? (onData, onError) => supplementLogsRepository.subscribeForUserByDate(uid, today, onData, onError)
+  const supplementsSource = useFirestoreCollection<SupplementDefinition>(
+    userId
+      ? (onData, onError) =>
+          supplementsRepository.subscribeActiveForUser(userId, onData, onError)
       : null,
-    [uid, today],
+    [userId],
+  );
+  const logsSource = useFirestoreCollection<SupplementLog>(
+    userId
+      ? (onData, onError) =>
+          supplementLogsRepository.subscribeForUserByDate(
+            userId,
+            today,
+            onData,
+            onError,
+          )
+      : null,
+    [userId, today],
   );
 
-  const logBySupplementId = new Map(logs.map((l) => [l.supplementId, l]));
+  const basePlan = buildTodaySupplementPlan(
+    supplementsSource.data,
+    logsSource.data,
+    today,
+  );
+  const plan = basePlan.map((item) => {
+    const status = optimisticStatuses[item.supplementId];
+    return status
+      ? { ...item, status, reminder: getSupplementReminderCopy(status) }
+      : item;
+  });
 
-  const handleCreate = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!uid || !name.trim()) return;
+  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!userId || !name.trim()) return;
     setSubmitting(true);
+    setFriendlyError(null);
     try {
       await supplementsRepository.create({
-        userId: uid,
+        userId,
         name: name.trim(),
-        dosage: dosage.trim() || "1x",
+        dosage: doseText.trim() || null,
         frequency: "daily",
-        timesOfDay: [],
+        timesOfDay: timeOfDay ? [timeOfDay] : [],
         active: true,
+        note: note.trim() || null,
+        provenance: "user_confirmed",
+        userConfirmed: true,
       });
       setName("");
-      setDosage("");
+      setDoseText("");
+      setTimeOfDay("");
+      setNote("");
       setModalOpen(false);
+    } catch {
+      setFriendlyError("Supplement belum bisa disimpan. Coba lagi ya 💗");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleToggle = async (supplementId: string) => {
-    if (!uid) return;
-    const existing = logBySupplementId.get(supplementId);
-    if (existing) {
-      await supplementLogsRepository.update(existing.id, {
-        taken: !existing.taken,
-        takenAt: !existing.taken ? new Date().toISOString() : null,
-      });
-    } else {
-      await supplementLogsRepository.create({
-        userId: uid,
-        supplementId,
+  const handleStatus = async (
+    item: SupplementPlanItem,
+    status: Exclude<SupplementStatus, "planned">,
+  ) => {
+    if (!userId) return;
+    setSavingId(item.supplementId);
+    setFriendlyError(null);
+    setOptimisticStatuses((current) => ({
+      ...current,
+      [item.supplementId]: status,
+    }));
+    try {
+      await supplementLogsRepository.setTodayStatus({
+        userId,
+        supplementId: item.supplementId,
         date: today,
-        taken: true,
-        takenAt: new Date().toISOString(),
+        status,
+        now: new Date().toISOString(),
+        existingLogId: item.logId,
       });
+    } catch {
+      setOptimisticStatuses((current) => {
+        const next = { ...current };
+        delete next[item.supplementId];
+        return next;
+      });
+      setFriendlyError("Status belum bisa disimpan. Coba lagi sebentar ya 💗");
+    } finally {
+      setSavingId(null);
     }
   };
 
-  const handleRemove = async (id: string) => {
-    await supplementsRepository.update(id, { active: false });
+  const handleRemove = async (supplementId: string) => {
+    setSavingId(supplementId);
+    setFriendlyError(null);
+    try {
+      await supplementsRepository.update(supplementId, { active: false });
+    } catch {
+      setFriendlyError("Supplement belum bisa dinonaktifkan. Coba lagi ya 💗");
+    } finally {
+      setSavingId(null);
+    }
   };
 
+  const loading = supplementsSource.loading || logsSource.loading;
+  const sourceUnavailable = supplementsSource.error || logsSource.error;
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <PageHeader
         title="Supplements"
-        description="Today's checklist."
+        description="Pengingat ringan dari supplement yang kamu simpan sendiri."
         action={
-          <Button leadingIcon={<Plus size={16} />} onClick={() => setModalOpen(true)}>
-            Add supplement
+          <Button
+            leadingIcon={<Plus size={16} />}
+            onClick={() => setModalOpen(true)}
+          >
+            Tambah supplement
           </Button>
         }
       />
 
-      {loading ? (
-        <Skeleton className="h-48 w-full rounded-card" />
-      ) : supplements.length === 0 ? (
+      {(friendlyError || sourceUnavailable) && (
         <GlassCard>
-          <EmptyState
-            icon={<Pill size={28} />}
-            title="No supplements yet"
-            description="Add the supplements you take regularly to track daily adherence."
-          />
-        </GlassCard>
-      ) : (
-        <GlassCard padding="none" className="overflow-hidden">
-          <ul className="divide-y divide-ink/8">
-            {supplements.map((s) => {
-              const taken = logBySupplementId.get(s.id)?.taken ?? false;
-              return (
-                <li key={s.id} className="flex items-center gap-3 px-5 py-4">
-                  <button
-                    onClick={() => void handleToggle(s.id)}
-                    aria-label={taken ? "Mark as not taken" : "Mark as taken"}
-                    className={taken ? "text-success" : "text-ink-faint"}
-                  >
-                    {taken ? <CheckCircle2 size={22} /> : <Circle size={22} />}
-                  </button>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-ink">{s.name}</p>
-                    <p className="text-xs text-ink-muted">{s.dosage} · daily</p>
-                  </div>
-                  <button
-                    onClick={() => void handleRemove(s.id)}
-                    aria-label="Remove supplement"
-                    className="rounded-full p-2 text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <p role="alert" className="text-sm text-ink-muted">
+            {friendlyError ?? "Data supplement belum bisa dimuat. Coba lagi sebentar ya 💗"}
+          </p>
         </GlassCard>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add supplement">
+      {loading ? (
+        <div role="status" aria-label="Memuat supplement hari ini" className="grid gap-3">
+          <Skeleton className="h-40 w-full rounded-card" />
+          <Skeleton className="h-40 w-full rounded-card" />
+        </div>
+      ) : (
+        <TodaySupplementPlan
+          plan={plan}
+          savingId={savingId}
+          onStatus={handleStatus}
+          onRemove={handleRemove}
+        />
+      )}
+
+      <Modal
+        open={modalOpen}
+        onClose={closeModal}
+        title="Tambah supplement tersimpan"
+      >
         <form onSubmit={handleCreate} className="flex flex-col gap-4">
-          <Input label="Name" placeholder="e.g. Vitamin D3" value={name} onChange={(e) => setName(e.target.value)} required />
-          <Input label="Dosage" placeholder="e.g. 1000 IU" value={dosage} onChange={(e) => setDosage(e.target.value)} />
+          <p className="text-xs leading-relaxed text-ink-muted">
+            Simpan hanya supplement yang memang sudah kamu pilih. Aplikasi tidak
+            menentukan supplement atau dosis baru.
+          </p>
+          <Input
+            id="supplement-name"
+            name="supplementName"
+            label="Nama supplement"
+            placeholder="Nama yang kamu simpan"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+          />
+          <Input
+            id="supplement-dose"
+            name="supplementDose"
+            label="Dosis tersimpan (opsional)"
+            placeholder="Isi persis sesuai rutinitasmu"
+            value={doseText}
+            onChange={(event) => setDoseText(event.target.value)}
+          />
+          <Input
+            id="supplement-time"
+            name="supplementTime"
+            type="time"
+            label="Waktu pengingat (opsional)"
+            value={timeOfDay}
+            onChange={(event) => setTimeOfDay(event.target.value)}
+          />
+          <Input
+            id="supplement-note"
+            name="supplementNote"
+            label="Catatanmu (opsional)"
+            placeholder="Catatan singkat dari rutinitasmu"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+          />
           <div className="mt-2 flex gap-3">
-            <Button type="button" variant="outline" className="flex-1" onClick={() => setModalOpen(false)}>
-              Cancel
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={closeModal}
+            >
+              Batal
             </Button>
-            <Button type="submit" className="flex-1" isLoading={submitting} disabled={!name.trim()}>
-              Add
+            <Button
+              type="submit"
+              className="flex-1"
+              isLoading={submitting}
+              disabled={!name.trim()}
+            >
+              Simpan
             </Button>
           </div>
         </form>
