@@ -407,7 +407,12 @@ describe("Today dashboard", () => {
         name: `Pilih ${alternative.name} untuk breakfast`,
       }),
     );
-    expect(within(breakfastCard!).getByText("Menu pengganti dipilih")).toBeInTheDocument();
+    expect(within(breakfastCard!).getByText("Menu pengganti dipilih 💗")).toBeInTheDocument();
+    expect(
+      within(breakfastCard!).getByText(
+        "Cek porsinya dulu ya, supaya target kalori/protein hari ini bisa dihitung lebih pas.",
+      ),
+    ).toBeInTheDocument();
     expect(within(breakfastCard!).getAllByText(alternative.name)).toHaveLength(2);
     expect(within(breakfastCard!).getByRole("link", { name: /konfirmasi.*meal log/i })).toHaveAttribute(
       "href",
@@ -418,7 +423,7 @@ describe("Today dashboard", () => {
     );
   });
 
-  it("marks unapproved practical nutrition for confirmation", async () => {
+  it("uses friendly portion-check copy for unapproved practical nutrition", async () => {
     const user = userEvent.setup();
     const plan = makePlan();
     (useTodayCoachPlan as jest.Mock).mockReturnValue({
@@ -432,7 +437,8 @@ describe("Today dashboard", () => {
     render(<TodayDashboard />);
     const breakfastCard = screen.getByText(/^sarapan ·/i).closest("li");
     await user.click(within(breakfastCard!).getByRole("button", { name: "Ganti menu" }));
-    expect(within(breakfastCard!).getAllByText(/Perlu konfirmasi/).length).toBeGreaterThan(0);
+    expect(within(breakfastCard!).getAllByText(/Cek porsi/).length).toBeGreaterThan(0);
+    expect(within(breakfastCard!).queryByText(/Perlu konfirmasi/)).not.toBeInTheDocument();
   });
 
   it("shows a friendly manual fallback when approved meal alternatives are empty", async () => {

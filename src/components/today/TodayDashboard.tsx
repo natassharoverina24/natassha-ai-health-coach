@@ -607,12 +607,12 @@ function TodayMealSummary({
               )}
               {selectedAlternative ? (
                 <div className="mt-2 rounded-control bg-petal-soft px-3 py-2 text-xs text-ink">
-                  <p className="font-semibold">Menu pengganti dipilih</p>
+                  <p className="font-semibold">Menu pengganti dipilih 💗</p>
                   <p className="mt-1 text-ink-muted">
-                    Sisa target belum dihitung ulang sampai menu ini kamu konfirmasi atau edit di Meal Log.
+                    Cek porsinya dulu ya, supaya target kalori/protein hari ini bisa dihitung lebih pas.
                   </p>
                   <Link href="/meal" className="mt-1 inline-block font-semibold text-rose-strong underline">
-                    Konfirmasi / edit di Meal Log
+                    Konfirmasi di Meal Log
                   </Link>
                 </div>
               ) : (
@@ -683,7 +683,7 @@ function TodayMealSummary({
                           <ul className="mt-1 flex flex-wrap gap-1.5">
                             {group.options.slice(0, 4).map((option) => (
                               <li key={option.id} className="rounded-full border border-rose-strong/20 bg-white/75 px-2 py-1 text-xs text-ink-muted">
-                                {option.label} · {option.nutritionStatus === "approved" ? "Katalog lokal" : "Perlu konfirmasi"}
+                                {option.label} · {option.nutritionStatus === "approved" ? "Katalog lokal" : "Cek porsi"}
                                 {option.availability === "optional" ? " · opsional" : ""}
                               </li>
                             ))}
