@@ -20,6 +20,7 @@ import {
 import {
   buildTodaySupplementPlan,
   getSupplementReminderCopy,
+  inferSupplementSuggestedTiming,
   type SupplementPlanItem,
   type SupplementStatus,
 } from "@/lib/supplements";
@@ -35,13 +36,47 @@ export default function SupplementsPage() {
   const [doseText, setDoseText] = useState("");
   const [timeOfDay, setTimeOfDay] = useState("");
   const [note, setNote] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [timeWasManuallySet, setTimeWasManuallySet] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [friendlyError, setFriendlyError] = useState<string | null>(null);
   const [optimisticStatuses, setOptimisticStatuses] = useState<
     Record<string, SupplementStatus>
   >({});
-  const closeModal = useCallback(() => setModalOpen(false), []);
+  const closeModal = useCallback(() => {
+    setModalOpen(false);
+    setEditingId(null);
+  }, []);
+
+  const timingSuggestion = useMemo(
+    () =>
+      inferSupplementSuggestedTiming(
+        name,
+        timeWasManuallySet ? timeOfDay : null,
+      ),
+    [name, timeOfDay, timeWasManuallySet],
+  );
+
+  const openCreateModal = () => {
+    setEditingId(null);
+    setName("");
+    setDoseText("");
+    setTimeOfDay("");
+    setNote("");
+    setTimeWasManuallySet(false);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (item: SupplementPlanItem) => {
+    setEditingId(item.supplementId);
+    setName(item.name);
+    setDoseText(item.doseText ?? "");
+    setTimeOfDay(item.schedule.timesOfDay[0] ?? "");
+    setNote(item.note ?? "");
+    setTimeWasManuallySet(item.schedule.timesOfDay.length > 0);
+    setModalOpen(true);
+  };
 
   const supplementsSource = useFirestoreCollection<SupplementDefinition>(
     userId
@@ -81,21 +116,33 @@ export default function SupplementsPage() {
     setSubmitting(true);
     setFriendlyError(null);
     try {
-      await supplementsRepository.create({
-        userId,
-        name: name.trim(),
-        dosage: doseText.trim() || null,
-        frequency: "daily",
-        timesOfDay: timeOfDay ? [timeOfDay] : [],
-        active: true,
-        note: note.trim() || null,
-        provenance: "user_confirmed",
-        userConfirmed: true,
-      });
+      const savedTime = timeOfDay || timingSuggestion.suggestedTime;
+      if (editingId) {
+        await supplementsRepository.update(editingId, {
+          name: name.trim(),
+          dosage: doseText.trim() || null,
+          timesOfDay: [savedTime],
+          note: note.trim() || null,
+        });
+      } else {
+        await supplementsRepository.create({
+          userId,
+          name: name.trim(),
+          dosage: doseText.trim() || null,
+          frequency: "daily",
+          timesOfDay: [savedTime],
+          active: true,
+          note: note.trim() || null,
+          provenance: "user_confirmed",
+          userConfirmed: true,
+        });
+      }
       setName("");
       setDoseText("");
       setTimeOfDay("");
       setNote("");
+      setEditingId(null);
+      setTimeWasManuallySet(false);
       setModalOpen(false);
     } catch {
       setFriendlyError("Supplement belum bisa disimpan. Coba lagi ya 💗");
@@ -159,7 +206,7 @@ export default function SupplementsPage() {
         action={
           <Button
             leadingIcon={<Plus size={16} />}
-            onClick={() => setModalOpen(true)}
+            onClick={openCreateModal}
           >
             Tambah supplement
           </Button>
@@ -185,13 +232,14 @@ export default function SupplementsPage() {
           savingId={savingId}
           onStatus={handleStatus}
           onRemove={handleRemove}
+          onEdit={openEditModal}
         />
       )}
 
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title="Tambah supplement tersimpan"
+        title={editingId ? "Ubah supplement tersimpan" : "Tambah supplement tersimpan"}
       >
         <form onSubmit={handleCreate} className="flex flex-col gap-4">
           <p className="text-xs leading-relaxed text-ink-muted">
@@ -204,7 +252,13 @@ export default function SupplementsPage() {
             label="Nama supplement"
             placeholder="Nama yang kamu simpan"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              const nextName = event.target.value;
+              setName(nextName);
+              if (!timeWasManuallySet) {
+                setTimeOfDay(inferSupplementSuggestedTiming(nextName).suggestedTime);
+              }
+            }}
             required
           />
           <Input
@@ -221,8 +275,27 @@ export default function SupplementsPage() {
             type="time"
             label="Waktu pengingat (opsional)"
             value={timeOfDay}
-            onChange={(event) => setTimeOfDay(event.target.value)}
+            onChange={(event) => {
+              setTimeOfDay(event.target.value);
+              setTimeWasManuallySet(true);
+            }}
           />
+          {name.trim() && (
+            <div className="rounded-control border border-rose-strong/20 bg-petal-soft/50 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-rose-strong">
+                  Saran waktu umum
+                </p>
+                <span className="text-[11px] font-medium text-ink-muted">
+                  Bisa kamu ubah
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-ink">{timingSuggestion.copy}</p>
+              <p className="mt-1 text-xs text-ink-muted">
+                {timingSuggestion.caution}
+              </p>
+            </div>
+          )}
           <Input
             id="supplement-note"
             name="supplementNote"
@@ -246,7 +319,7 @@ export default function SupplementsPage() {
               isLoading={submitting}
               disabled={!name.trim()}
             >
-              Simpan
+              {editingId ? "Simpan perubahan" : "Simpan"}
             </Button>
           </div>
         </form>

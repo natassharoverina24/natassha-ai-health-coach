@@ -6,6 +6,22 @@ import type {
 
 export type { SupplementProvenance, SupplementStatus };
 
+export type SupplementSuggestedTimeOfDay =
+  | "morning"
+  | "morning-or-lunch"
+  | "evening-or-night"
+  | "user-selected";
+
+export interface SupplementTimingSuggestion {
+  suggestedTimeOfDay: SupplementSuggestedTimeOfDay;
+  suggestedTime: string;
+  reason: string;
+  copy: string;
+  caution: string;
+  confidence: "low" | "medium";
+  userCanOverride: true;
+}
+
 export interface SupplementSchedule {
   frequency: SupplementFrequency;
   timesOfDay: string[];
