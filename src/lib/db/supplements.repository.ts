@@ -10,6 +10,7 @@ import {
   COLLECTIONS,
   type SupplementDefinition,
   type SupplementLog,
+  type SupplementStatus,
 } from "@/types/firestore";
 
 const definitions = createRepository<SupplementDefinition>(COLLECTIONS.supplements);
@@ -65,5 +66,30 @@ export const supplementLogsRepository = {
     return logs.list([where("userId", "==", userId), orderBy("date", "desc")]).then(
       (items) => items.slice(0, take),
     );
+  },
+
+  async setTodayStatus(input: {
+    userId: string;
+    supplementId: string;
+    date: string;
+    status: SupplementStatus;
+    now: string;
+    existingLogId?: string | null;
+  }) {
+    const data = {
+      userId: input.userId,
+      supplementId: input.supplementId,
+      date: input.date,
+      status: input.status,
+      taken: input.status === "taken",
+      takenAt: input.status === "taken" ? input.now : null,
+      note: null,
+    };
+    if (input.existingLogId) {
+      await logs.update(input.existingLogId, data);
+      return input.existingLogId;
+    }
+    const id = `${input.userId}__${input.supplementId}__${input.date}`;
+    return logs.create(data, id);
   },
 };
