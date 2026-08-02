@@ -12,13 +12,16 @@ const MEAL_SLOTS = new Set<MealSlot>([
 function isSelection(value: unknown): value is SelectedMealReplacement {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
+  const ingredientIdsValid = item.ingredientIds === undefined ||
+    (Array.isArray(item.ingredientIds) && item.ingredientIds.every((id) => typeof id === "string"));
   return (
     typeof item.userId === "string" &&
     /^\d{4}-\d{2}-\d{2}$/.test(String(item.date)) &&
     MEAL_SLOTS.has(item.slot as MealSlot) &&
     typeof item.templateId === "string" &&
     typeof item.label === "string" &&
-    typeof item.selectedAt === "string"
+    typeof item.selectedAt === "string" &&
+    ingredientIdsValid
   );
 }
 

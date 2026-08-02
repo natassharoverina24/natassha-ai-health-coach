@@ -155,6 +155,35 @@ describe("buildShoppingListFromMealPlan", () => {
     expect(buildBatchCookingOpportunities(result.items).length).toBeGreaterThan(0);
   });
 
+  it("maps known AI ingredients and marks only unknown ingredients for manual checking", () => {
+    const days = weeklyDays();
+    const result = buildShoppingListFromMealPlan({
+      days,
+      selectedReplacements: [
+        {
+          userId: "user-1",
+          date: days[0].date,
+          slot: "lunch",
+          templateId: "ai-gemini-ayam-daun-lokal",
+          label: "Ayam dengan daun lokal",
+          selectedAt: "2026-08-01T08:00:00.000Z",
+          ingredientIds: ["chicken", "white-rice", "daun-lokal"],
+          provenance: "ai-assisted",
+          provider: "gemini",
+        },
+      ],
+    });
+
+    expect(result.status).toBe("partial");
+    expect(result.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "chicken", provenance: "mixed" }),
+        expect.objectContaining({ id: "white-rice", provenance: "mixed" }),
+        expect.objectContaining({ name: "daun-lokal", quantityStatus: "needs-confirmation" }),
+      ]),
+    );
+  });
+
   it("returns a clear empty result and requires no paid provider", () => {
     const result = buildShoppingListFromMealPlan({ days: [] });
     expect(result).toEqual({ status: "empty", items: [], warnings: [] });
