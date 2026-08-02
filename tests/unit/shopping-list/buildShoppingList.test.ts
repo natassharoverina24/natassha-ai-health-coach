@@ -6,6 +6,7 @@ import {
 } from "@/lib/planner";
 import {
   buildShoppingListFromMealPlan,
+  buildBatchCookingOpportunities,
   clearMealReplacementSelection,
   readMealReplacementSelections,
   saveMealReplacementSelection,
@@ -104,6 +105,21 @@ describe("buildShoppingListFromMealPlan", () => {
     expect(repeated!.estimatedQuantity).toBe(repeated!.sourceMeals.length);
   });
 
+  it("keeps batch cooking available for repeated known protein or staples", () => {
+    const result = buildShoppingListFromMealPlan({ days: weeklyDays() });
+    if (result.status === "empty") throw new Error("Expected shopping items.");
+
+    const opportunities = buildBatchCookingOpportunities(result.items);
+    expect(opportunities.length).toBeGreaterThan(0);
+    expect(
+      opportunities.every(
+        (item) =>
+          item.occurrenceCount >= 2 &&
+          ["protein", "carbohydrate", "pantry-basic"].includes(item.category),
+      ),
+    ).toBe(true);
+  });
+
   it("keeps unknown replacements as a manual-check partial item", () => {
     const days = weeklyDays();
     const result = buildShoppingListFromMealPlan({
@@ -121,6 +137,9 @@ describe("buildShoppingListFromMealPlan", () => {
     });
 
     expect(result.status).toBe("partial");
+    expect(
+      result.items.some((item) => item.provenance !== "needs-confirmation"),
+    ).toBe(true);
     expect(result.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -133,6 +152,7 @@ describe("buildShoppingListFromMealPlan", () => {
         }),
       ]),
     );
+    expect(buildBatchCookingOpportunities(result.items).length).toBeGreaterThan(0);
   });
 
   it("returns a clear empty result and requires no paid provider", () => {

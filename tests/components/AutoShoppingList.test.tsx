@@ -25,6 +25,13 @@ const readyResult: ShoppingListResult = {
           mealName: "Grilled chicken with rice & vegetables",
           selectedReplacement: false,
         },
+        {
+          date: "2026-08-02",
+          slot: "dinner",
+          templateId: "chicken-rice-veg",
+          mealName: "Grilled chicken with rice & vegetables",
+          selectedReplacement: false,
+        },
       ],
       checked: false,
     },
@@ -60,6 +67,8 @@ describe("AutoShoppingList", () => {
     expect(screen.getByText("~3 porsi")).toBeInTheDocument();
     expect(screen.getAllByText(/Estimasi · sesuaikan porsi/)).toHaveLength(2);
     expect(screen.getByText("Dari menu pengganti pilihanmu", { exact: false })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Peluang batch cooking" })).toBeInTheDocument();
+    expect(screen.getByText(/dipakai di 2 menu/i)).toBeInTheDocument();
   });
 
   it("ticks and unticks an item locally", async () => {
@@ -71,7 +80,9 @@ describe("AutoShoppingList", () => {
 
     await user.click(checkbox);
     expect(checkbox).toBeChecked();
-    expect(screen.getByText("Ayam")).toHaveClass("line-through");
+    expect(within(checkbox.closest("li")!).getByText("Ayam")).toHaveClass(
+      "line-through",
+    );
     await user.click(checkbox);
     expect(checkbox).not.toBeChecked();
   });
@@ -84,7 +95,7 @@ describe("AutoShoppingList", () => {
     );
     expect(
       screen.getByText(
-        "Belum ada meal plan mingguan, jadi shopping list belum bisa dibuat 💗",
+        "Belum ada meal plan mingguan, jadi daftar belanja belum bisa dibuat.",
       ),
     ).toBeInTheDocument();
   });

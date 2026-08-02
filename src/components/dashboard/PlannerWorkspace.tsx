@@ -136,6 +136,7 @@ export function PlannerWorkspace() {
 
       <GlassCard>
         <PlanningToolsPanel
+          userId={uid}
           decision={state.decision}
           context={state.context}
           dailyPlan={state.dailyPlan}

@@ -76,7 +76,7 @@ export default function ShoppingPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        title="Shopping List"
+        title="Daftar Belanja"
         description="Daftar belanja otomatis dari meal plan mingguanmu."
       />
 

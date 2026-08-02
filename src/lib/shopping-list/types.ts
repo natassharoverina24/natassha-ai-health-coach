@@ -36,6 +36,16 @@ export interface ShoppingListItem {
   checked: boolean;
 }
 
+export interface ShoppingBatchOpportunity {
+  id: string;
+  name: string;
+  category: "protein" | "carbohydrate" | "pantry-basic";
+  estimatedQuantity: number;
+  unit: string;
+  occurrenceCount: number;
+  sourceMeals: ShoppingListSource[];
+}
+
 export interface SelectedMealReplacement {
   userId: string;
   date: string;

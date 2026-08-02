@@ -60,7 +60,11 @@ describe("PlannerWorkspace", () => {
     expect(within(week).getAllByText(/^lunch$/i)).toHaveLength(7);
     expect(within(week).getAllByText(/^snack$/i)).toHaveLength(7);
     expect(within(week).getAllByText(/^dinner$/i)).toHaveLength(7);
-    expect(screen.getByText(/shopping data unavailable/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/daftar belanja dibuat dari meal plan mingguanmu/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Protein" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Peluang batch cooking" })).toBeInTheDocument();
   });
 
   it("uses a sanitized isolated error state when planner context cannot load", async () => {

@@ -5,6 +5,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { OfficeLunchOptimizerFlow } from "@/components/dashboard/OfficeLunchOptimizerFlow";
+import { AutoShoppingList } from "@/components/shopping";
 import {
   calculateEnergy,
   type ActivityLevel,
@@ -25,8 +26,13 @@ import {
   type PlannerUserContext,
   type WeeklyMealPrepResult,
 } from "@/lib/planner";
+import {
+  buildShoppingListFromMealPlan,
+  readMealReplacementSelections,
+} from "@/lib/shopping-list";
 
 interface PlanningToolsPanelProps {
+  userId?: string | null;
   decision: CoachDecision;
   context: PlannerUserContext;
   dailyPlan: DailyPlan;
@@ -90,6 +96,7 @@ function buildDisruption(
 }
 
 export function PlanningToolsPanel({
+  userId = null,
   decision,
   context,
   dailyPlan,
@@ -294,7 +301,7 @@ export function PlanningToolsPanel({
         </PlannerCard>
 
         <PlannerCard id="weekly-meal-plan" title="Weekly meal plan">
-          <WeeklyResultView result={weeklyResult} />
+          <WeeklyResultView result={weeklyResult} userId={userId} />
         </PlannerCard>
 
         <PlannerCard title="Emergency planner">
@@ -477,20 +484,31 @@ function EnergyResultView({ result }: { result: EnergyCalculatorResult | null })
   );
 }
 
-function WeeklyResultView({ result }: { result: WeeklyMealPrepResult }) {
+function WeeklyResultView({
+  result,
+  userId,
+}: {
+  result: WeeklyMealPrepResult;
+  userId: string | null;
+}) {
   if (result.status === "invalid-input") {
     const missingMappings = result.errors.filter(
       (error) => error.code === "missing-template-ingredients",
     );
     if (missingMappings.length > 0) {
+      const shoppingResult = buildShoppingListFromMealPlan({
+        days: result.days ?? [],
+        selectedReplacements: userId
+          ? readMealReplacementSelections(userId)
+          : [],
+      });
       return (
         <div className="flex flex-col gap-3">
           <StatusMessage tone="neutral">
-            Shopping data unavailable. All seven selected meal days remain
-            available, but shopping-list and batch-cooking sections are
-            disabled.
+            Daftar belanja dibuat dari meal plan mingguanmu 💗
           </StatusMessage>
           {result.days && <WeeklyDays days={result.days} />}
+          <AutoShoppingList result={shoppingResult} />
         </div>
       );
     }
