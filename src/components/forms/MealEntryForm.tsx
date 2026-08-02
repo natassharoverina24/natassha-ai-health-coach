@@ -400,7 +400,7 @@ export function MealEntryForm({
               }}
               className={
                 type === option.value
-                  ? "rounded-pill bg-rose px-4 py-2 text-sm font-semibold text-white"
+                  ? "rounded-pill bg-rose-strong px-4 py-2 text-sm font-semibold text-white"
                   : "rounded-pill bg-ink/5 px-4 py-2 text-sm font-medium text-ink-muted"
               }
             >
@@ -520,7 +520,7 @@ export function MealEntryForm({
       )}
       {(estimateStatus === "review" || estimateStatus === "manual") &&
         onEstimate && (
-          <div className="rounded-control bg-teal-soft px-3 py-2 text-sm text-ink">
+          <div className="rounded-control bg-taupe-soft px-3 py-2 text-sm text-ink">
             <p className="font-semibold">
               Review and confirm nutrition before this food enters the meal
               total.

@@ -324,7 +324,7 @@ export default function MealPage() {
         )}
         <a
           href="#meal-photo-analysis"
-          className="inline-flex h-10 items-center rounded-control bg-rose px-4 text-sm font-semibold text-white"
+          className="inline-flex h-10 items-center rounded-control bg-rose-strong px-4 text-sm font-semibold text-white"
         >
           Analyse meal photo
         </a>
@@ -349,7 +349,7 @@ export default function MealPage() {
               Loading logged meals…
             </p>
           ) : meals.length === 0 ? (
-            <p role="status" className="rounded-control bg-teal-soft px-3 py-2 text-sm text-ink">
+            <p role="status" className="rounded-control bg-taupe-soft px-3 py-2 text-sm text-ink">
               Log a meal first, then return here to analyse its photo.
             </p>
           ) : (

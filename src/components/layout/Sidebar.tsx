@@ -36,7 +36,7 @@ export function Sidebar() {
   return (
     <aside className="glass sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-1 rounded-r-card p-5 md:flex">
       <div className="mb-6 flex items-center gap-2 px-2">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-rose text-white font-bold">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-strong text-white font-bold">
           N
         </span>
         <span className="text-sm font-bold leading-tight text-ink">{APP_NAME}</span>
@@ -53,7 +53,7 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-control px-3 py-2.5 text-sm font-medium transition-colors",
                 active
-                  ? "bg-rose text-white shadow-[0_10px_24px_-10px_rgba(255,107,157,0.6)]"
+                  ? "bg-rose-strong text-white shadow-[0_10px_24px_-12px_rgba(156,113,100,0.5)]"
                   : "text-ink-muted hover:bg-ink/5 hover:text-ink",
               )}
               aria-current={active ? "page" : undefined}

@@ -211,13 +211,13 @@ export default function ProgressPage() {
 
       <GlassCard className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
-          <Ruler size={16} className="text-teal" />
+          <Ruler size={16} className="text-taupe" />
           <p className="text-sm font-semibold text-ink">Waist over time</p>
         </div>
         {waistsLoading ? (
           <Skeleton className="h-56 w-full rounded-control" />
         ) : waistData.length > 1 ? (
-          <TrendLineChart data={waistData} color="var(--color-teal)" unit=" cm" />
+          <TrendLineChart data={waistData} color="var(--color-taupe)" unit=" cm" />
         ) : (
           <EmptyState
             title="No measurements yet"

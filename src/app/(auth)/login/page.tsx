@@ -54,7 +54,7 @@ export default function LoginPage() {
   return (
     <div className="app-backdrop flex min-h-screen flex-col items-center justify-center px-6">
       <div className="glass w-full max-w-sm rounded-card p-8 text-center shadow-[var(--shadow-float)]">
-        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-rose text-white shadow-[0_10px_24px_-10px_rgba(255,107,157,0.6)]">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-rose-strong text-white shadow-[0_10px_24px_-12px_rgba(156,113,100,0.55)]">
           <HeartPulse size={28} />
         </div>
         <h1 className="text-xl font-bold text-ink">{APP_NAME}</h1>

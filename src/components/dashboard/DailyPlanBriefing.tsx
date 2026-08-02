@@ -84,9 +84,9 @@ export function DailyPlanBriefing({
             return (
               <li
                 key={slot}
-                className="flex items-center gap-2 rounded-control bg-teal-soft px-3 py-2 text-sm"
+                className="flex items-center gap-2 rounded-control bg-taupe-soft px-3 py-2 text-sm"
               >
-                <Clock size={13} className="shrink-0 text-teal" />
+                <Clock size={13} className="shrink-0 text-rose-strong" />
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-ink">
                     {item.label}
@@ -154,8 +154,8 @@ function TargetItem({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-control bg-teal-soft px-3 py-2">
-      <span className="text-teal">{icon}</span>
+    <div className="flex items-center gap-2 rounded-control bg-taupe-soft px-3 py-2">
+      <span className="text-rose-strong">{icon}</span>
       <span>
         <span className="block text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
           {label}

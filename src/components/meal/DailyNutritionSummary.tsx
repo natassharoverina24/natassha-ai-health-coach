@@ -13,7 +13,7 @@ interface MacroRowProps {
   label: string;
   value: string;
   progressPercent?: number;
-  tone?: "rose" | "teal" | "amber";
+  tone?: "rose" | "taupe" | "amber";
 }
 
 function MacroRow({ label, value, progressPercent, tone = "rose" }: MacroRowProps) {
@@ -46,7 +46,7 @@ export function DailyNutritionSummary({ totals, calorieGoal, proteinGoalG }: Dai
         label="Protein"
         value={formatGrams(totals.proteinG)}
         progressPercent={proteinGoalG > 0 ? clampPercent((totals.proteinG / proteinGoalG) * 100) : 0}
-        tone="teal"
+        tone="taupe"
       />
       <MacroRow label="Carbs" value={formatGrams(totals.carbsG)} />
       <MacroRow label="Fat" value={formatGrams(totals.fatG)} />

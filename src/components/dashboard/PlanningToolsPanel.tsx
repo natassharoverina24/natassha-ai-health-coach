@@ -445,7 +445,7 @@ function StatusMessage({
       className={
         tone === "error"
           ? "rounded-control bg-danger/10 px-3 py-2 text-sm text-danger"
-          : "rounded-control bg-teal-soft px-3 py-2 text-sm text-ink"
+          : "rounded-control bg-taupe-soft px-3 py-2 text-sm text-ink"
       }
     >
       {children}
@@ -549,7 +549,7 @@ function EmergencyResultView({ result }: { result: EmergencyPlanResult | null })
       {result.actions.map((action, index) => (
         <li
           key={`${action.slot}-${index}`}
-          className="rounded-control bg-teal-soft px-3 py-2 text-sm text-ink"
+          className="rounded-control bg-taupe-soft px-3 py-2 text-sm text-ink"
         >
           <span className="font-semibold">
             {action.slot.charAt(0).toUpperCase() + action.slot.slice(1)}:
@@ -584,7 +584,7 @@ function AdaptiveResultView({ result }: { result: AdaptiveAdjustmentResult }) {
       {result.adjustments.map((adjustment) => (
         <li
           key={`${adjustment.type}-${adjustment.reasonInsightId}`}
-          className="rounded-control bg-teal-soft px-3 py-2 text-sm text-ink"
+          className="rounded-control bg-taupe-soft px-3 py-2 text-sm text-ink"
         >
           {labelFromCode(adjustment.type)} · retained insight{" "}
           {adjustment.reasonInsightId}
@@ -596,7 +596,7 @@ function AdaptiveResultView({ result }: { result: AdaptiveAdjustmentResult }) {
 
 function OutputValue({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-control bg-teal-soft px-3 py-2">
+    <div className="rounded-control bg-taupe-soft px-3 py-2">
       <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
         {label}
       </p>

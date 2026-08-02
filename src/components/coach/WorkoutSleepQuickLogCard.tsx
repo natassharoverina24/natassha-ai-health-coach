@@ -98,11 +98,11 @@ export function WorkoutSleepQuickLogCard({
 
       <form onSubmit={handleLogSleep} className="flex flex-1 flex-col gap-3">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-soft text-teal">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-taupe-soft text-rose-strong">
             <Moon size={14} />
           </span>
           <p className="text-sm font-semibold text-ink">Last night&apos;s sleep</p>
-          {todaysSleep && <Badge tone="teal">{todaysSleep.hoursSlept}h logged</Badge>}
+          {todaysSleep && <Badge tone="taupe">{todaysSleep.hoursSlept}h logged</Badge>}
         </div>
         <Input
           name="sleepHours"

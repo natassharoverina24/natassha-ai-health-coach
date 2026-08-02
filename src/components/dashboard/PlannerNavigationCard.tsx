@@ -55,9 +55,9 @@ export function PlannerNavigationCard() {
             <Link
               key={href}
               href={href}
-              className="flex min-h-12 items-center gap-2 rounded-control bg-teal-soft px-3 py-2 text-sm font-semibold text-ink hover:bg-petal-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
+              className="flex min-h-12 items-center gap-2 rounded-control bg-taupe-soft px-3 py-2 text-sm font-semibold text-ink hover:bg-petal-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
             >
-              <Icon size={17} className="shrink-0 text-teal" />
+              <Icon size={17} className="shrink-0 text-rose-strong" />
               <span>{label}</span>
             </Link>
           ))}

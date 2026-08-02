@@ -288,7 +288,7 @@ export function MealPhotoSection({
       )}
 
       {saved && (
-        <p role="status" className="text-xs font-medium text-teal">
+        <p role="status" className="text-xs font-medium text-rose-strong">
           Confirmed estimates saved. The image was not stored.
         </p>
       )}

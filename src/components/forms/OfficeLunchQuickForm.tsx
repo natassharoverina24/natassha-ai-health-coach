@@ -95,7 +95,7 @@ export function OfficeLunchQuickForm({ onSubmit, onCancel }: OfficeLunchQuickFor
                 aria-pressed={selected}
                 className={
                   selected
-                    ? "flex items-center gap-1.5 rounded-pill bg-rose px-3.5 py-2 text-sm font-semibold text-white"
+                    ? "flex items-center gap-1.5 rounded-pill bg-rose-strong px-3.5 py-2 text-sm font-semibold text-white"
                     : "flex items-center gap-1.5 rounded-pill bg-ink/5 px-3.5 py-2 text-sm font-medium text-ink-muted"
                 }
               >

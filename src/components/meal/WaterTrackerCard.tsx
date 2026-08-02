@@ -35,12 +35,12 @@ export function WaterTrackerCard({
             <span className="ml-1 text-sm font-medium text-ink-muted">/ {formatMilliliters(goalMl)}</span>
           </p>
         </div>
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-soft text-teal">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-taupe-soft text-rose-strong">
           <Droplets size={18} />
         </span>
       </div>
 
-      <ProgressBar value={progressPercent} tone="teal" label="Water intake" />
+      <ProgressBar value={progressPercent} tone="taupe" label="Water intake" />
 
       <div className="grid grid-cols-4 gap-2">
         {WATER_QUICK_AMOUNTS_ML.map((amount) => (
