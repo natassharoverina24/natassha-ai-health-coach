@@ -363,7 +363,7 @@ describe("Today dashboard", () => {
     expect(screen.getAllByRole("button", { name: "Ganti menu" })).toHaveLength(4);
   });
 
-  it("shows a friendly partial calorie state when target or workout calories are unavailable", () => {
+  it("shows a friendly partial calorie state while keeping available values", () => {
     const plan = makePlan();
     plan.metrics.calorieSummary = {
       ...plan.metrics.calorieSummary,
@@ -375,9 +375,9 @@ describe("Today dashboard", () => {
         sourceIds: ["repository.workouts"],
       },
       netCalories: {
-        value: null,
+        value: 700,
         unit: "kcal",
-        status: "empty",
+        status: "ready",
         sourceIds: ["repository.meals", "repository.workouts"],
       },
       remainingCalories: {
@@ -400,9 +400,58 @@ describe("Today dashboard", () => {
 
     render(<TodayDashboard />);
     const summary = screen.getByRole("heading", { name: "Ringkasan kalori hari ini" }).closest("section");
-    expect(within(summary!).getByText("Belum ada workout tercatat")).toBeInTheDocument();
-    expect(within(summary!).getByText("Target belum tersedia")).toBeInTheDocument();
-    expect(summary).not.toHaveTextContent(/Infinity|NaN/);
+    expect(within(summary!).getAllByText("700 kcal")).toHaveLength(2);
+    expect(within(summary!).getByText("0 kcal")).toBeInTheDocument();
+    expect(within(summary!).getByText("—")).toBeInTheDocument();
+    expect(within(summary!).getByText("Target kalori belum diset.")).toBeInTheDocument();
+    expect(summary).not.toHaveTextContent(/Data sebagian|belum bisa dihitung|Infinity|NaN|undefined|null/);
+  });
+
+  it("shows a friendly meal action instead of an empty calorie grid", () => {
+    const plan = makePlan();
+    plan.metrics.calorieSummary = {
+      ...plan.metrics.calorieSummary,
+      status: "partial",
+      caloriesEaten: {
+        value: null,
+        unit: "kcal",
+        status: "empty",
+        sourceIds: ["repository.meals"],
+      },
+      netCalories: {
+        value: null,
+        unit: "kcal",
+        status: "empty",
+        sourceIds: ["repository.meals", "repository.workouts"],
+      },
+      remainingCalories: {
+        value: null,
+        unit: "kcal",
+        status: "empty",
+        sourceIds: ["planner.daily.targets.calories"],
+      },
+      workoutCaloriesBurned: {
+        value: null,
+        unit: "kcal",
+        status: "empty",
+        sourceIds: ["repository.workouts"],
+      },
+      workoutEntryCount: 0,
+    };
+    (useTodayCoachPlan as jest.Mock).mockReturnValue({
+      plan,
+      loading: false,
+      refreshing: false,
+      error: null,
+      refresh,
+    });
+
+    render(<TodayDashboard />);
+    const summary = screen.getByRole("heading", { name: "Ringkasan kalori hari ini" }).closest("section");
+    expect(within(summary!).getByText("Belum ada makanan yang dicatat. Yuk input makan pertamamu 💗")).toBeInTheDocument();
+    expect(within(summary!).getByRole("link", { name: "Input makan" })).toHaveAttribute("href", "/meal");
+    expect(within(summary!).queryByText("Kalori masuk")).not.toBeInTheDocument();
+    expect(summary).not.toHaveTextContent(/Data sebagian|Infinity|NaN|undefined|null/);
   });
 
   it("renders a mobile-first action hub with eight working destinations", () => {
