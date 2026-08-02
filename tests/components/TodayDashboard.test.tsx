@@ -309,29 +309,77 @@ beforeEach(() => {
 });
 
 describe("Today dashboard", () => {
-  it("loads the dashboard route from one TodayCoachPlan and renders all core sections", () => {
+  it("loads the Indonesian Today dashboard and renders all core sections", async () => {
+    const user = userEvent.setup();
     render(<DashboardPage />);
 
     expect(
       screen.getByRole("heading", { name: "Good morning from TodayCoachPlan." }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Coach briefing" })).toBeInTheDocument();
+    expect(screen.getByText("Plan hari ini sudah siap 💗")).toBeInTheDocument();
+    const briefing = screen.getByRole("heading", { name: "Ringkasan coach" }).closest("section");
+    expect(briefing).not.toBeNull();
+    expect(
+      within(briefing!).queryByText("Follow the retained protein-first action."),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Lihat ringkasan" }));
     expect(
       screen.getAllByText("Use the retained protein focus."),
     ).toHaveLength(3);
-    expect(screen.getByRole("heading", { name: "Today’s Focus" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Biggest Risk" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Today’s Win" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Timeline" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Nutrition guidance" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Health metrics" })).toBeInTheDocument();
-    expect(screen.getByText("Primary daily progress")).toBeInTheDocument();
-    expect(screen.getByText("Body & energy")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Fokus hari ini" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Yang perlu dijaga" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Kemenangan hari ini" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Jadwal hari ini" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Panduan makan" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ringkasan kesehatan" })).toBeInTheDocument();
+    expect(screen.getByText("Progress utama hari ini")).toBeInTheDocument();
+    expect(screen.getByText("Tubuh & energi")).toBeInTheDocument();
     expect(screen.getByText("0 /100")).toBeInTheDocument();
-    expect(screen.getAllByText("estimated")).toHaveLength(3);
+    expect(screen.getAllByText("estimasi")).toHaveLength(3);
     expect(screen.getByText("Remember the retained motivation.")).toBeInTheDocument();
-    expect(screen.getAllByText(/Remaining after/)).toHaveLength(4);
+    expect(screen.getAllByText(/Sisa setelah/)).toHaveLength(4);
     expect(screen.getAllByRole("button", { name: "Ganti menu" })).toHaveLength(4);
+  });
+
+  it("renders a mobile-first action hub with eight working destinations", () => {
+    render(<TodayDashboard />);
+
+    const hub = screen.getByRole("navigation", { name: "Aksi cepat hari ini" });
+    expect(within(hub).getAllByRole("link")).toHaveLength(8);
+    expect(within(hub).getByRole("link", { name: "Input makan" })).toHaveAttribute("href", "/meal");
+    expect(within(hub).getByRole("link", { name: "Office Lunch" })).toHaveAttribute(
+      "href",
+      "/planner#office-lunch-optimizer",
+    );
+    expect(within(hub).getByRole("link", { name: "Belanja" })).toHaveAttribute("href", "/shopping");
+    expect(within(hub).getByRole("link", { name: "Plan berubah?" })).toHaveAttribute("href", "#plans-changed");
+    expect(hub.querySelector("ul")).toHaveClass("grid-cols-2", "sm:grid-cols-4");
+  });
+
+  it("replaces raw Infinity workout copy with supportive Indonesian wording", async () => {
+    const plan = makePlan();
+    plan.briefing.retainedInsights = [
+      ...plan.briefing.retainedInsights,
+      {
+        ...plan.briefing.retainedInsights[0],
+        id: "workout-gap",
+        summary: "Infinity days since the last workout.",
+      },
+    ];
+    (useTodayCoachPlan as jest.Mock).mockReturnValue({
+      plan,
+      loading: false,
+      refreshing: false,
+      error: null,
+      refresh,
+    });
+    const user = userEvent.setup();
+    render(<TodayDashboard />);
+    await user.click(screen.getByRole("button", { name: "Lihat ringkasan" }));
+
+    expect(screen.getByText("Belum ada workout yang tercatat.")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/Infinity/);
+    expect(document.body.innerHTML).not.toMatch(/(?:bg|text|to|from)-(?:green|teal)/);
   });
 
   it("opens practical alternatives and previews a selected approved replacement", async () => {
@@ -347,7 +395,7 @@ describe("Today dashboard", () => {
     });
 
     render(<TodayDashboard />);
-    const breakfastCard = screen.getByText(/^breakfast ·/i).closest("li");
+    const breakfastCard = screen.getByText(/^sarapan ·/i).closest("li");
     expect(breakfastCard).not.toBeNull();
     await user.click(within(breakfastCard!).getByRole("button", { name: "Ganti menu" }));
 
@@ -382,7 +430,7 @@ describe("Today dashboard", () => {
     });
 
     render(<TodayDashboard />);
-    const breakfastCard = screen.getByText(/^breakfast ·/i).closest("li");
+    const breakfastCard = screen.getByText(/^sarapan ·/i).closest("li");
     await user.click(within(breakfastCard!).getByRole("button", { name: "Ganti menu" }));
     expect(within(breakfastCard!).getAllByText(/Perlu konfirmasi/).length).toBeGreaterThan(0);
   });
@@ -400,7 +448,7 @@ describe("Today dashboard", () => {
     });
 
     render(<TodayDashboard />);
-    const breakfastCard = screen.getByText(/^breakfast ·/i).closest("li");
+    const breakfastCard = screen.getByText(/^sarapan ·/i).closest("li");
     await user.click(within(breakfastCard!).getByRole("button", { name: "Ganti menu" }));
     expect(
       within(breakfastCard!).getByText(/belum ada opsi ganti yang cocok/i),
@@ -418,9 +466,9 @@ describe("Today dashboard", () => {
 
     render(<TodayDashboard />);
 
-    expect(screen.getByText(/today’s core plan is ready/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Timeline" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Nutrition guidance" })).toBeInTheDocument();
+    expect(screen.getByText(/plan intinya sudah siap/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Jadwal hari ini" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Panduan makan" })).toBeInTheDocument();
   });
 
   it("renders Office Lunch guidance inside the lunch recommendation", () => {
@@ -444,7 +492,7 @@ describe("Today dashboard", () => {
 
     render(<TodayDashboard />);
 
-    expect(screen.getByText("Office lunch adjustment")).toBeInTheDocument();
+    expect(screen.getByText("Penyesuaian makan siang kantor")).toBeInTheDocument();
     expect(screen.getByText(/Eat: Rice/)).toBeInTheDocument();
   });
 
@@ -463,7 +511,7 @@ describe("Today dashboard", () => {
       (item) => item.kind === "waterReminder",
     )!.action;
 
-    await user.click(screen.getByRole("button", { name: "Add 250 ml water" }));
+    await user.click(screen.getByRole("button", { name: "Tambah 250 ml air" }));
 
     await waitFor(() =>
       expect(waterLogsRepository.create).toHaveBeenCalledWith(
@@ -475,8 +523,8 @@ describe("Today dashboard", () => {
         }),
       ),
     );
-    expect(screen.getByText("Logged from quick actions: 250 ml.")).toBeInTheDocument();
-    expect(screen.getByText(/water added with quick log this session: 250 ml/i)).toBeInTheDocument();
+    expect(screen.getByText("Sudah dicatat dari aksi cepat: 250 ml.")).toBeInTheDocument();
+    expect(screen.getByText(/air yang ditambahkan sesi ini: 250 ml/i)).toBeInTheDocument();
     expect(refresh).toHaveBeenCalledTimes(1);
 
     const refreshedPlan = makePlan();
@@ -532,7 +580,7 @@ describe("Today dashboard", () => {
     });
     render(<TodayDashboard />);
 
-    await user.click(screen.getByRole("button", { name: "Mark complete" }));
+    await user.click(screen.getByRole("button", { name: "Tandai selesai" }));
 
     expect(
       timelineCompletionsRepository.markCompleted,
@@ -554,10 +602,10 @@ describe("Today dashboard", () => {
     const user = userEvent.setup();
     render(<TodayDashboard />);
 
-    await user.click(screen.getByRole("button", { name: "Add 500 ml water" }));
+    await user.click(screen.getByRole("button", { name: "Tambah 500 ml air" }));
 
     expect(
-      await screen.findByText("Water could not be logged. Please try again."),
+      await screen.findByText("Airnya belum berhasil dicatat. Coba lagi ya."),
     ).toBeInTheDocument();
     expect(waterLogsRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -709,7 +757,7 @@ describe("Today dashboard", () => {
     render(<TodayDashboard />);
 
     expect(
-      screen.getByText("No guilt. We adjusted today's plan."),
+      screen.getByText("Nggak perlu merasa bersalah. Plan hari ini sudah disesuaikan 💗"),
     ).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent(/migraine detected|diagnos/i);
     await user.click(screen.getByRole("button", { name: "Undo adjustment" }));
@@ -739,7 +787,7 @@ describe("Today dashboard", () => {
 
     expect(
       await screen.findByText(
-        "Today's adjustment could not be saved. Please try again.",
+        "Penyesuaian hari ini belum berhasil disimpan. Coba lagi ya.",
       ),
     ).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent(/firebase|console|index url/i);
