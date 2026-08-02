@@ -10,10 +10,10 @@ export interface MilestonesListProps {
   milestones: Milestone[];
 }
 
-const CATEGORY_CONFIG: Record<MilestoneCategory, { icon: typeof Scale; tone: "rose" | "teal" | "amber"; label: string }> = {
+const CATEGORY_CONFIG: Record<MilestoneCategory, { icon: typeof Scale; tone: "rose" | "taupe" | "amber"; label: string }> = {
   weight: { icon: Scale, tone: "rose", label: "Weight" },
   streak: { icon: Flame, tone: "amber", label: "Streak" },
-  workout: { icon: Trophy, tone: "teal", label: "Workout" },
+  workout: { icon: Trophy, tone: "taupe", label: "Workout" },
 };
 
 export function MilestonesList({ milestones }: MilestonesListProps) {
@@ -36,7 +36,7 @@ export function MilestonesList({ milestones }: MilestonesListProps) {
               <li key={milestone.id} className="flex items-start gap-3">
                 <span
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                    config.tone === "rose" ? "bg-petal-soft text-rose-strong" : config.tone === "teal" ? "bg-teal-soft text-teal" : "bg-amber-soft text-amber"
+                    config.tone === "rose" ? "bg-petal-soft text-rose-strong" : config.tone === "taupe" ? "bg-taupe-soft text-rose-strong" : "bg-amber-soft text-amber"
                   }`}
                 >
                   <Icon size={16} />

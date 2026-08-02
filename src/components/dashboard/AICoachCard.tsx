@@ -303,7 +303,7 @@ export function AICoachCard() {
               </p>
             </div>
           ) : (
-            <div className="rounded-control bg-teal-soft px-4 py-3">
+            <div className="rounded-control bg-taupe-soft px-4 py-3">
               <p className="text-sm font-medium text-ink">{NOTHING_URGENT}</p>
             </div>
           )}
@@ -323,7 +323,7 @@ export function AICoachCard() {
               <ul className="flex flex-col gap-2">
                 {actionInsights.map((insight) => (
                   <li key={insight.id} className="flex items-start gap-2 text-sm">
-                    <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal" />
+                    <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-rose-strong" />
                     <span className="text-ink">{insight.recommendedAction}</span>
                   </li>
                 ))}

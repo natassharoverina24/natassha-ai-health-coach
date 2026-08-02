@@ -3,14 +3,14 @@ import { clampPercent } from "@/lib/utils/format";
 
 export interface ProgressBarProps {
   value: number; // 0-100
-  tone?: "rose" | "teal" | "amber";
+  tone?: "rose" | "taupe" | "amber";
   className?: string;
   label?: string;
 }
 
 const toneMap = {
   rose: "bg-rose",
-  teal: "bg-teal",
+  taupe: "bg-taupe",
   amber: "bg-amber",
 };
 

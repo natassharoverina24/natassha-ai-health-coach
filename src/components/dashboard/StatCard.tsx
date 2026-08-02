@@ -9,7 +9,7 @@ export interface StatCardProps {
   value: string;
   unit?: string;
   icon: ReactNode;
-  tone?: "rose" | "teal" | "amber";
+  tone?: "rose" | "taupe" | "amber";
   progressPercent?: number; // 0-100, renders a thin progress bar when provided
   trend?: { label: string; direction: "up" | "down" | "flat" };
   className?: string;
@@ -18,7 +18,7 @@ export interface StatCardProps {
 
 const toneStyles = {
   rose: { bg: "bg-petal-soft", fg: "text-rose-strong" },
-  teal: { bg: "bg-teal-soft", fg: "text-teal" },
+  taupe: { bg: "bg-taupe-soft", fg: "text-rose-strong" },
   amber: { bg: "bg-amber-soft", fg: "text-amber" },
 };
 

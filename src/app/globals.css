@@ -3,86 +3,83 @@
 /*
  * Design Tokens — "Soft Pink / Apple Health" theme
  * ---------------------------------------------------------------------------
- * Palette:
- *   Rose (primary / weight ring):     #FF6B9D  (light)  #FF7AAE (dark)
- *   Petal (secondary / surfaces):     #FFB4C6
- *   Teal (hydration ring, contrast):  #3FBFB0
- *   Amber (steps / energy ring):      #FFB648
- *   Ink (text):                       #2D2A32  (light)  #F5EFF2 (dark)
+ * Romantic Blush palette:
+ *   Antique Lace #E8E1D1, Soft Peach #D8B69F, Rosy Blush #C38380,
+ *   Rose Taupe #9C7164, Deep Umber #4B342C, warm canvas #F7F2EE.
  * Rounded corners everywhere (18-28px), frosted-glass surfaces, generous
- * whitespace. Dark mode swaps the base surfaces for a deep plum-black
- * rather than pure black, so the pink accents stay warm at night.
+ * whitespace. Both appearance modes stay warm and airy; Deep Umber remains
+ * reserved for readable text and icons rather than large surfaces.
  */
 
 :root {
   color-scheme: light;
 
-  --color-bg: #fdf6f8;
-  --color-bg-elevated: #ffffff;
-  --color-surface-border: 255 255 255;
+  --color-bg: #f7f2ee;
+  --color-bg-elevated: #fff9f6;
+  --color-surface-border: 232 216 210;
 
-  --color-ink: #2d2a32;
-  --color-ink-muted: #8a8590;
-  --color-ink-faint: #b9b3bd;
+  --color-ink: #4b342c;
+  --color-ink-muted: #7b625b;
+  --color-ink-faint: #9c8179;
 
-  --color-rose: #ff6b9d;
-  --color-rose-strong: #f2467f;
-  --color-petal: #ffb4c6;
-  --color-petal-soft: #ffe3ea;
-  --color-teal: #3fbfb0;
-  --color-teal-soft: #d8f5f0;
-  --color-amber: #ffb648;
-  --color-amber-soft: #fff0d9;
-  --color-lavender: #b39ddb;
+  --color-rose: #c38380;
+  --color-rose-strong: #8a5c55;
+  --color-petal: #d8b69f;
+  --color-petal-soft: #f2dfd5;
+  --color-taupe: #9c7164;
+  --color-taupe-soft: #eadbd4;
+  --color-amber: #9c7164;
+  --color-amber-soft: #e8e1d1;
+  --color-lavender: #c38380;
 
-  --color-success: #34c07a;
-  --color-warning: #ffb648;
-  --color-danger: #ff5c72;
+  --color-success: #7b625b;
+  --color-warning: #9c7164;
+  --color-danger: #9b4f5b;
 
   --radius-card: 1.75rem;
   --radius-control: 1rem;
   --radius-pill: 999px;
 
-  --shadow-card: 0 8px 30px -12px rgba(255, 107, 157, 0.25),
-    0 2px 8px -2px rgba(45, 42, 50, 0.06);
-  --shadow-float: 0 16px 48px -16px rgba(255, 107, 157, 0.35);
+  --shadow-card: 0 8px 30px -14px rgba(156, 113, 100, 0.28),
+    0 2px 8px -2px rgba(75, 52, 44, 0.06);
+  --shadow-float: 0 16px 48px -18px rgba(156, 113, 100, 0.4);
 
-  --glass-bg: rgba(255, 255, 255, 0.55);
-  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-bg: rgba(255, 249, 246, 0.86);
+  --glass-border: rgba(232, 216, 210, 0.9);
   --glass-blur: 20px;
 }
 
 [data-theme="dark"] {
-  color-scheme: dark;
+  color-scheme: light;
 
-  --color-bg: #17121c;
-  --color-bg-elevated: #1f1926;
-  --color-surface-border: 255 255 255;
+  --color-bg: #e8e1d1;
+  --color-bg-elevated: #f7f2ee;
+  --color-surface-border: 195 131 128;
 
-  --color-ink: #f5eff2;
-  --color-ink-muted: #a79cac;
-  --color-ink-faint: #6f6577;
+  --color-ink: #4b342c;
+  --color-ink-muted: #7b625b;
+  --color-ink-faint: #9c7164;
 
-  --color-rose: #ff7aae;
-  --color-rose-strong: #ff5c99;
-  --color-petal: #d98ba3;
-  --color-petal-soft: #3a2530;
-  --color-teal: #4fd6c6;
-  --color-teal-soft: #17332f;
-  --color-amber: #ffc773;
-  --color-amber-soft: #372b16;
-  --color-lavender: #c9b6ea;
+  --color-rose: #c38380;
+  --color-rose-strong: #8a5c55;
+  --color-petal: #d8b69f;
+  --color-petal-soft: #eadbd4;
+  --color-taupe: #9c7164;
+  --color-taupe-soft: #decac0;
+  --color-amber: #9c7164;
+  --color-amber-soft: #ddd3c2;
+  --color-lavender: #c38380;
 
-  --color-success: #4ad991;
-  --color-warning: #ffc773;
-  --color-danger: #ff7085;
+  --color-success: #7b625b;
+  --color-warning: #9c7164;
+  --color-danger: #8f4654;
 
-  --shadow-card: 0 8px 30px -12px rgba(0, 0, 0, 0.45),
-    0 2px 8px -2px rgba(0, 0, 0, 0.3);
-  --shadow-float: 0 16px 48px -16px rgba(0, 0, 0, 0.55);
+  --shadow-card: 0 8px 30px -14px rgba(75, 52, 44, 0.24),
+    0 2px 8px -2px rgba(75, 52, 44, 0.08);
+  --shadow-float: 0 16px 48px -18px rgba(75, 52, 44, 0.32);
 
-  --glass-bg: rgba(31, 25, 38, 0.55);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(247, 242, 238, 0.88);
+  --glass-border: rgba(195, 131, 128, 0.22);
 }
 
 @theme inline {
@@ -96,8 +93,8 @@
   --color-rose-strong: var(--color-rose-strong);
   --color-petal: var(--color-petal);
   --color-petal-soft: var(--color-petal-soft);
-  --color-teal: var(--color-teal);
-  --color-teal-soft: var(--color-teal-soft);
+  --color-taupe: var(--color-taupe);
+  --color-taupe-soft: var(--color-taupe-soft);
   --color-amber: var(--color-amber);
   --color-amber-soft: var(--color-amber-soft);
   --color-lavender: var(--color-lavender);
@@ -137,7 +134,7 @@ body {
 .app-backdrop {
   background:
     radial-gradient(60% 45% at 12% -10%, color-mix(in srgb, var(--color-petal) 35%, transparent), transparent 60%),
-    radial-gradient(50% 40% at 100% 0%, color-mix(in srgb, var(--color-teal) 18%, transparent), transparent 60%),
+    radial-gradient(50% 40% at 100% 0%, color-mix(in srgb, var(--color-taupe) 14%, transparent), transparent 60%),
     var(--color-bg);
 }
 

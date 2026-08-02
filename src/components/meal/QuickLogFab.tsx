@@ -60,7 +60,7 @@ export function QuickLogFab({ onLogFood, onLogWater, onLogWeight }: QuickLogFabP
       <button
         onClick={() => setPickerOpen(true)}
         aria-label="Quick log"
-        className="fixed bottom-24 right-5 z-[45] flex h-14 w-14 items-center justify-center rounded-full bg-rose text-white shadow-[var(--shadow-float)] transition-transform hover:scale-105 active:scale-95 md:bottom-8"
+        className="fixed bottom-24 right-5 z-[45] flex h-14 w-14 items-center justify-center rounded-full bg-rose-strong text-white shadow-[var(--shadow-float)] transition-transform hover:scale-105 active:scale-95 md:bottom-8"
       >
         <Plus size={26} />
       </button>

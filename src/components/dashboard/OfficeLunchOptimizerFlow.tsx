@@ -214,7 +214,7 @@ export function OfficeLunchOptimizerFlow({
                   onClick={() => toggleItem(item.key)}
                   className={
                     selected
-                      ? "flex min-h-11 items-center justify-center gap-1.5 rounded-control bg-rose px-3 py-2 text-sm font-semibold text-white"
+                      ? "flex min-h-11 items-center justify-center gap-1.5 rounded-control bg-rose-strong px-3 py-2 text-sm font-semibold text-white"
                       : "flex min-h-11 items-center justify-center rounded-control border border-rose/20 bg-bg-elevated px-3 py-2 text-sm font-medium text-ink"
                   }
                 >

@@ -51,7 +51,7 @@ export default function ReportsPage() {
                 <p className="text-sm font-semibold text-ink">
                   {formatDateLabel(report.startDate)} – {formatDateLabel(report.endDate)}
                 </p>
-                <Badge tone={report.period === "weekly" ? "rose" : "teal"}>{report.period}</Badge>
+                <Badge tone={report.period === "weekly" ? "rose" : "taupe"}>{report.period}</Badge>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                 <ReportStat label="Avg weight" value={report.avgWeightKg != null ? formatWeightKg(report.avgWeightKg) : "—"} />

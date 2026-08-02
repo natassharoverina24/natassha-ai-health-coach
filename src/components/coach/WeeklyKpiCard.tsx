@@ -11,14 +11,14 @@ export interface WeeklyKpiCardProps {
 
 interface KpiRowProps {
   icon: ReactNode;
-  tone: "rose" | "teal" | "amber";
+  tone: "rose" | "taupe" | "amber";
   label: string;
   value: string;
 }
 
 const TONE_STYLES = {
   rose: "bg-petal-soft text-rose-strong",
-  teal: "bg-teal-soft text-teal",
+  taupe: "bg-taupe-soft text-rose-strong",
   amber: "bg-amber-soft text-amber",
 };
 
@@ -63,7 +63,7 @@ export function WeeklyKpiCard({ kpi }: WeeklyKpiCardProps) {
           />
           <KpiRow
             icon={<Target size={16} />}
-            tone="teal"
+            tone="taupe"
             label="Improvement focus"
             value={kpi.improvementFocus!.label}
           />
